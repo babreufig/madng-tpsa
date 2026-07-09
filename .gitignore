@@ -1,0 +1,14 @@
+build/
+_bridge_cache/
+.mad-ng-*/
+*.o
+*.a
+*.so
+*.so.*
+*.dylib
+__pycache__/
+*.py[cod]
+*.sw[op]
+*~
+.DS_Store
+generated/
