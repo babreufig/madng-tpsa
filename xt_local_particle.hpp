@@ -17,7 +17,13 @@
 
 #if defined(XT_FLAVOR_TPSA)
   #include "mad_tpsa.hpp"      /* mad::tpsa / tpsa_ref, operators, sqrt */
-  using namespace mad;
+  /* Not `using namespace mad;` because it pulls mad's scalar helpers
+   * like (e.g. mad::fabs(num_t)) into the global overload set, making the physics'
+   * fabs(double) ambiguous with ::fabs(double). Tpsa-typed math calls (sqrt/sin/fabs
+   * on coordinates) resolve via argument-dependent lookup since the tpsa types live
+   * in namespace mad. Only double-typed calls need the global/std versions, so ADL alone is correct here. */
+  using mad::tpsa;
+  using mad::tpsa_ref;
   #define XT_NUM   mad::tpsa
   typedef tpsa_t XT_COORD;
   /* pass coordinates by const-reference: a tpsa by-value copy only copies descriptor-only, not the coefficients (value lost) */
@@ -33,6 +39,17 @@
     template<class A, class B> inline bool operator OP (const mad::tpsa_base<A>& a, const mad::tpsa_base<B>& b){ return a[0] OP b[0]; }
   XT_TPSA_REL(>) XT_TPSA_REL(<) XT_TPSA_REL(>=) XT_TPSA_REL(<=) XT_TPSA_REL(==) XT_TPSA_REL(!=)
   #undef XT_TPSA_REL
+
+  /* Parametric-knob build: lattice strengths become TPSAs so knob dependence is in
+   * the maps. Plain tpsa flavor keeps XT_STRENGTH == double (track.h default). */
+  #if defined(XT_KNOBS)
+    #include <vector>           /* lifting double multipole arrays -> constant tpsa */
+    #define XT_STRENGTH mad::tpsa
+    #define XT_STRENGTH_CONST_ARG const XT_STRENGTH&
+    #define XT_STRENGTH_CONST(s) ((s)[0])
+    /* fabs(tpsa) = |const part| is already provided by mad_tpsa.hpp and found via argument-dependent lookup
+     * (the tpsa types live in namespace mad). This matches the XT_TPSA_REL const-part branching. */
+  #endif
 #elif defined(XT_FLAVOR_NUM)
   #include <math.h>           /* global sqrt(double) for the physics' unqualified sqrt */
   #define XT_NUM   double
