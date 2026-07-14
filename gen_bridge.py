@@ -56,6 +56,17 @@ HEADERS = {
     xt.ParticlesMonitor: "xtrack/monitors/particles_monitor.h",
 }
 
+# Route A knob object: classes whose strengths may carry knob params, + the strength
+# fields (slot order matches track_magnet.h XT_K: 0..7 = k0,k1,k2,k3,k0s,k1s,k2s,k3s).
+# These are the only classes the tpsa-strength knob kernel handles (xt_knob_dispatch).
+KNOBBABLE = {
+    xt.Quadrupole: ["k1", "k1s"],
+    xt.Bend: ["k0", "k1"],
+    xt.RBend: ["k0", "k1"],
+    xt.Sextupole: ["k2", "k2s"],
+    xt.Octupole: ["k3", "k3s"],
+}
+
 # ---------------------------------------------------------------------------- #
 # Particle-var classification (drives the struct, cdef, accessors).
 # Every key MUST exist in xtrack's Particles var lists (asserted below); a new
@@ -183,6 +194,45 @@ def emit_dispatch_inc():
             f"            {base}_track_local_particle(({base}Data) el, part); break;"
         )
     parts.append("        default: break;  /* type_id is guarded on the Python side */")
+    parts.append("    }")
+    parts.append("}")
+    return "\n".join(parts)
+
+
+def emit_knob_dispatch():
+    """Route A knob object dispatch (generated/xt_knob_dispatch.inc).
+
+    Compiled only into xt_bridge_knob.cpp (-DXT_KNOBS, XT_STRENGTH = mad::tpsa). Provides
+    xt_knob_dispatch(real_typeid, el, part): a switch over the knob-usable classes calling
+    their tpsa-strength <Class>_track_local_particle. The main (double) bridge links this
+    object and calls xt_knob_dispatch for the knobbed instances. Typeids match the main
+    dispatch's type_ids() so the same integer routes to either kernel.
+    """
+    tids = type_ids()
+    knob_cls = [c for c in _sorted_elements() if c in KNOBBABLE]
+    parts = [BANNER]
+    for cls in knob_cls:
+        parts.append(f'#include "{HEADERS[cls]}"')
+    parts.append("")
+    for cls in knob_cls:
+        name = cls.__name__
+        parts.append(f"#define XT_TYPEID_{name.upper()} {tids[name]}")
+    parts.append("")
+    parts.append(
+        'extern "C" void xt_knob_dispatch(int64_t type_id, void* el, void* part_){'
+    )
+    parts.append("    LocalParticle* part = (LocalParticle*) part_;")
+    parts.append("    xt_knob_clear_current();  /* fresh per-element strength slots */")
+    parts.append("    switch(type_id){")
+    for cls in knob_cls:
+        base = cls.__name__
+        parts.append(f"        case XT_TYPEID_{base.upper()}:")
+        parts.append(
+            f"            {base}_track_local_particle(({base}Data) el, part); break;"
+        )
+    parts.append(
+        "        default: break;  /* non-knobbable typeid: never routed here */"
+    )
     parts.append("    }")
     parts.append("}")
     return "\n".join(parts)
@@ -361,6 +411,7 @@ def main():
     os.makedirs(GEN, exist_ok=True)
     _write(os.path.join(GEN, "xt_element_capi.h"), emit_element_capi())
     _write(os.path.join(GEN, "xt_dispatch.inc"), emit_dispatch_inc())
+    _write(os.path.join(GEN, "xt_knob_dispatch.inc"), emit_knob_dispatch())
     _write(
         os.path.join(GEN, "xt_local_particle_struct.h"), emit_local_particle_struct()
     )

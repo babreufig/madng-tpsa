@@ -19,6 +19,13 @@
 
 #if defined(XT_FLAVOR_TPSA)
   #define XT_F(base) base##_tpsa
+  /* Route A knob kernel (xt_bridge_knob.cpp, linked into the tpsa .so): the
+   * mad::tpsa-strength variant of a knob-using element, dispatched by real typeid.
+   * Declared here so this TU (and cffi's wrapper for set_table) can call them; defined
+   * in the linked knob object. */
+  extern "C" void xt_knob_dispatch(int64_t type_id, void* el, void* part);
+  extern "C" void xt_knob_set_table(const void** addrs, const void** tpsas,
+                                    const void* proto, int64_t n);
 #else
   #define XT_F(base) base##_num
 #endif
@@ -104,10 +111,16 @@ static inline void xt_tpsa_monitor_record(XtBridgeTpsaMonitor, LocalParticle*, i
  * `mon_` is a ParticlesMonitorData for flags 1-2 and an XtBridgeTpsaMonitor for flag 3.
  * at_element is maintained only in EBE mode: it counts elements tracked (0-based from
  * ele_start, like in xtrack's increment_at_element from a frsh particle). On loss, it
- * is the absolute line index, which Python maps back to the name. */
+ * is the absolute line index, which Python maps back to the name.
+ * knob_dispatch:
+ *   NULL -> pure-double path (bit-identical; _num always passes NULL).
+ *   Non-NULL -> knob_dispatch[ii - ele_start] is 0 for a normal element or
+ * real_typeid + 1 for an instance affected by knobs, which routes to the tpsa-strength kernel
+ * (xt_knob_dispatch). The knob table (xt_knob_set_table) must be pushed from Python first. */
 extern "C"
 void XT_F(xt_bridge_track_line)(void* ref_, int64_t ele_start, int64_t num_elements,
-                               void* p_, void* mon_, int64_t flag_monitor){
+                               void* p_, void* mon_, int64_t flag_monitor,
+                               const int64_t* knob_dispatch){
     XtBridgeParticle p = (XtBridgeParticle) p_;
     ElementRefData ref = (ElementRefData) ref_;
     ParticlesMonitorData mon = (ParticlesMonitorData) mon_;      /* flags 1-2 */
@@ -133,6 +146,11 @@ void XT_F(xt_bridge_track_line)(void* ref_, int64_t ele_start, int64_t num_eleme
         }
         void* el = ElementRefData_member_elements(ref, ii);
         int64_t type_id = ElementRefData_typeid_elements(ref, ii);
+#if defined(XT_FLAVOR_TPSA)
+        if (knob_dispatch && knob_dispatch[ii - ele_start]){
+            xt_knob_dispatch(type_id, el, &part);   /* tpsa-strength kernel (knobbed) */
+        } else
+#endif
         xt_bridge_dispatch(type_id, el, &part);
         if (XtBridgeParticle_get_state(p) <= 0){  /* loss: a map past its loss point is meaningless */
             XtBridgeParticle_set_at_element(p, ii);

@@ -49,6 +49,11 @@
     #define XT_STRENGTH_CONST(s) ((s)[0])
     /* fabs(tpsa) = |const part| is already provided by mad_tpsa.hpp and found via argument-dependent lookup
      * (the tpsa types live in namespace mad). This matches the XT_TPSA_REL const-part branching. */
+    /* Real knob-slot macros (track.h has no-op defaults). An element header that can use knobs
+     * records each strength field's buffer address in a per-element slot. xt_knob (in
+     * xt_knob.hpp, included after this) reads them. Only used in the knob translation unit. */
+    #define XT_KNOB_SET(slot, addr) (xt_cur_addr[slot] = (addr))
+    #define XT_KNOB_CLEAR() xt_knob_clear_current()
   #endif
 #elif defined(XT_FLAVOR_NUM)
   #include <math.h>           /* global sqrt(double) for the physics' unqualified sqrt */
