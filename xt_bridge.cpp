@@ -6,22 +6,33 @@
 
 #include "xt_local_particle.hpp"                        /* flavor select + LocalParticle struct + glue */
 
+/* Flavor symbol suffix. Defined before the generated includes so xt_knob.hpp can
+ * name the per-flavor set_knob_table entry point.  tpsa_param = tpsa + knobs. */
+#if defined(XT_FLAVOR_TPSA) && defined(XT_KNOBS)
+  #define XT_F(base) base##_tpsa_param
+#elif defined(XT_FLAVOR_TPSA)
+  #define XT_F(base) base##_tpsa
+#else
+  #define XT_F(base) base##_num
+#endif
+
 /* the generated C-API uses the C99 keyword `restrict`, which does not exist in C++,
  * but is supported by most C++ compilers. */
 #define restrict __restrict
 #include "generated/xt_element_capi.h"                  /* <El>Data + ElementRefData + XtBridgeParticle */
 #include "generated/xt_local_particle_gen.hpp"          /* field accessors (via XtBridgeParticle_get_*) */
 
+/* Parametric knobs: address-keyed strength table + per-element address slots. A
+ * knobbable magnet header records its strength field addresses (XT_KNOB_SET) before
+ * calling track_magnet_particles, whose internal lift (XT_K) looks them up. */
+#ifdef XT_KNOBS
+#include "xt_knob.hpp"
+#endif
+
 #include "xtrack/headers/track.h"
 #include "xtrack/headers/particle_states.h"             /* XT_LOST_ON_APERTURE (aperture loss) */
 #include "xtrack/particles/local_particle_custom_api.h" /* update_delta/ptau/pzeta, add_to_energy (XT_NUM) */
 #include "generated/xt_dispatch.inc"                    /* physics includes + XT_TYPEID + xt_bridge_dispatch() */
-
-#if defined(XT_FLAVOR_TPSA)
-  #define XT_F(base) base##_tpsa
-#else
-  #define XT_F(base) base##_num
-#endif
 
 /* Point a LocalParticle at the bridge struct: coord pointers + ref/int variables
  * via the generated XtBridgeParticle_get_* accessors (coords are tpsa_t* / double* addresses
@@ -68,6 +79,7 @@ void XT_F(xt_bridge_track_element)(int64_t type_id, void* el, void* p_){
     lp_bind(&part, p);
     XT_DECL_DERIVED(part);
     LocalParticle_update_delta(&part, LocalParticle_get_delta(&part));  /* refresh rvv,rpp,ptau */
+    XT_KNOB_CLEAR();   /* no stale knob-address slots from a previous element */
     xt_bridge_dispatch(type_id, el, &part);
 }
 
@@ -133,6 +145,7 @@ void XT_F(xt_bridge_track_line)(void* ref_, int64_t ele_start, int64_t num_eleme
         }
         void* el = ElementRefData_member_elements(ref, ii);
         int64_t type_id = ElementRefData_typeid_elements(ref, ii);
+        XT_KNOB_CLEAR();   /* no stale knob-address slots from a previous element */
         xt_bridge_dispatch(type_id, el, &part);
         if (XtBridgeParticle_get_state(p) <= 0){  /* loss: a map past its loss point is meaningless */
             XtBridgeParticle_set_at_element(p, ii);

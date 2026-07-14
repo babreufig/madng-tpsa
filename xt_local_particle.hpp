@@ -47,6 +47,10 @@
     #define XT_STRENGTH mad::tpsa
     #define XT_STRENGTH_CONST_ARG const XT_STRENGTH&
     #define XT_STRENGTH_CONST(s) ((s)[0])
+    /* Knob-address slots (state lives in xt_knob.hpp, included after this by xt_bridge.cpp;
+     * the macros only expand at use sites in the physics, which come later still). */
+    #define XT_KNOB_SET(slot, addr) (xt_cur_addr[slot] = (addr))
+    #define XT_KNOB_CLEAR() xt_knob_clear_current()
     /* fabs(tpsa) = |const part| is already provided by mad_tpsa.hpp and found via argument-dependent lookup
      * (the tpsa types live in namespace mad). This matches the XT_TPSA_REL const-part branching. */
   #endif
