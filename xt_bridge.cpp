@@ -102,12 +102,18 @@ static inline void xt_tpsa_monitor_record(XtBridgeTpsaMonitor, LocalParticle*, i
  *                == 3  element-by-element into an XtBridgeTpsaMonitor: the FULL map per
  *                      slot, not just its const part (TPSA flavor only).
  * `mon_` is a ParticlesMonitorData for flags 1-2 and an XtBridgeTpsaMonitor for flag 3.
+ * `observe` (flag 3 only, may be NULL) selects which positions to record: a length
+ * num_elements+1 array over the range (index k = before element ele_start+k; index
+ * num_elements = the end). The full map is recorded at positions where observe[k] != 0,
+ * into consecutive monitor slots. NULL records every position (EBE), so the slot counter
+ * then coincides with the position index.
  * at_element is maintained only in EBE mode: it counts elements tracked (0-based from
  * ele_start, like in xtrack's increment_at_element from a frsh particle). On loss, it
  * is the absolute line index, which Python maps back to the name. */
 extern "C"
 void XT_F(xt_bridge_track_line)(void* ref_, int64_t ele_start, int64_t num_elements,
-                               void* p_, void* mon_, int64_t flag_monitor){
+                               void* p_, void* mon_, int64_t flag_monitor,
+                               const int64_t* observe){
     XtBridgeParticle p = (XtBridgeParticle) p_;
     ElementRefData ref = (ElementRefData) ref_;
     ParticlesMonitorData mon = (ParticlesMonitorData) mon_;      /* flags 1-2 */
@@ -123,13 +129,14 @@ void XT_F(xt_bridge_track_line)(void* ref_, int64_t ele_start, int64_t num_eleme
     if (flag_monitor == 1){
         ParticlesMonitor_track_local_particle(mon, &part);
     }
+    int64_t slot = 0;   /* flag 3: next TpsaMonitor slot; advances only on a recorded position */
     for (int64_t ii = ele_start; ii < ele_start + num_elements; ++ii){
         if (flag_monitor == 2){
             XtBridgeParticle_set_at_element(p, ii - ele_start);
             ParticlesMonitor_track_local_particle(mon, &part);
         }
-        else if (flag_monitor == 3){
-            xt_tpsa_monitor_record(tpsa_mon, &part, ii - ele_start);
+        else if (flag_monitor == 3 && (observe == nullptr || observe[ii - ele_start])){
+            xt_tpsa_monitor_record(tpsa_mon, &part, slot++);
         }
         void* el = ElementRefData_member_elements(ref, ii);
         int64_t type_id = ElementRefData_typeid_elements(ref, ii);
@@ -143,7 +150,7 @@ void XT_F(xt_bridge_track_line)(void* ref_, int64_t ele_start, int64_t num_eleme
         XtBridgeParticle_set_at_element(p, num_elements);
         ParticlesMonitor_track_local_particle(mon, &part);
     }
-    else if (flag_monitor == 3){
-        xt_tpsa_monitor_record(tpsa_mon, &part, num_elements);
+    else if (flag_monitor == 3 && (observe == nullptr || observe[num_elements])){
+        xt_tpsa_monitor_record(tpsa_mon, &part, slot++);
     }
 }
