@@ -1,12 +1,14 @@
-/* Address-keyed knob table (Route A, knob object only; -DXT_KNOBS).
+/* Address-keyed knob table (Route A, knob object only, -DXT_KNOBS).
  *
- * Maps a strength double's buffer address to a parametric TPSA.
- * A knob-using magnet header records its strength field addresses (XT_KNOB_SET) before calling
- * track_magnet_particles, whose internal lift (XT_K) looks them up. A registered
- * address enters the physics as a TPSA in the knob parameters, every other field as a
- * constant TPSA. The table is (re)set from Python before every track (buffer-realloc
- * danger) via xt_knob_set_table. Lives entirely inside the knob TU (xt_bridge_knob.cpp),
- * the double main bridge never sees it.
+ * Maps a strength double's buffer address to a parametric TPSA. A knob-using magnet
+ * header records its strength field addresses (XT_KNOB_SET) before calling
+ * track_magnet_particles, whose internal lift (XT_K) looks them up here.
+ * A registered address enters the physics as a TPSA in the knob parameters,
+ * every other field as a constant TPSA. The table is (re)set from Python before every
+ * track (buffer-realloc danger) via xt_knob_set_table.
+ *
+ * Lives entirely inside the knob TU (xt_bridge_knob.cpp), the double main bridge
+ * never sees it.
  */
 #ifndef XT_KNOB_HPP
 #define XT_KNOB_HPP
@@ -44,8 +46,8 @@ extern "C" void xt_knob_set_table(
 
 /* If addr is a registered knob, return a value copy of its parametric TPSA
  * (`1.0 * ref` = scl -> a fresh temporary carrying the param slots). Otherwise return
- * `raw` as a constant TPSA on the prototype (coordinate) descriptor. Both branches yield
- * the temporary type, so the result is movable/returnable. */
+ * `raw` as a constant TPSA on the prototype (coordinate) descriptor. Both branches
+ * yield the temporary type, so the result is movable/returnable. */
 static inline xt_knob_tpsa xt_knob(const double* addr, double raw){
     for (int64_t i = 0; i < xt_knob_n; ++i)
         if (xt_knob_addr[i] == addr)

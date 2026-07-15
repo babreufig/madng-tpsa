@@ -1,7 +1,7 @@
-/* gtpsa_stubs.c - stubs for the MINIMAL build (see build.sh --minimal).
+/* gtpsa_stubs.c - stubs for the minimal build (see build.sh --minimal).
  *
  * The real-TPSA functions erf/erfc/erfcx/erfi/wf are implemented in MAD-NG through
- * complex TPSA (mad_ctpsa_*) and the Faddeeva package (mad_erfw.c).  Our
+ * complex TPSA (mad_ctpsa_*) and the Faddeeva package (mad_erfw.c). Our
  * tracking/matching use cases usually do not call those, so the minimal build drops the
  * whole mad_ctpsa_*.o + mad_erfw.o set and links these aborting
  * stubs instead, keeping the shared object free of undefined symbols.
@@ -14,9 +14,9 @@
 #define STUB(name)                                                            \
   void name(void) {                                                           \
     fprintf(stderr,                                                           \
-            "gtpsa: '%s' is unavailable in the minimal build "               \
-            "(complex-TPSA / erf functions disabled). Rebuild with "         \
-            "gtpsa_lib/build.sh --full.\n", #name);                          \
+            "gtpsa: '%s' is unavailable in the minimal build "                \
+            "(complex-TPSA / erf functions disabled). Rebuild with "          \
+            "gtpsa_lib/build.sh --full.\n", #name);                           \
     abort();                                                                  \
   }
 

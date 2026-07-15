@@ -2,7 +2,7 @@
  * knob-using magnet kernels, compiled as its own translation unit (-DXT_FLAVOR_TPSA -DXT_KNOBS)
  * and linked into the tpsa bridge .so. Namespace isolation of two strength variants in one TU
  * fails (argument dependent lookup on the global LocalParticle* type -> ambiguous calls), so the
- * knob kernel is a separate translation unit.  It shares LocalParticle / <El>Data / mad::tpsa layouts
+ * knob kernel is a separate translation unit. It shares LocalParticle / <El>Data / mad::tpsa layouts
  * with the main bridge (same generated headers, same libgtpsa_core.so), so the main
  * bridge hands a LocalParticle* / ElementData pointer straight across the .o boundary.
  *
@@ -25,8 +25,8 @@
 #endif
 
 /* Standard headers mad_tpsa.hpp relies on but does not include itself. The main bridge
- * gets these transitively from cffi's <Python.h> preamble; this TU is compiled standalone
- * (its own .o, linked in), so it must pull them explicitly. */
+ * gets these transitively from cffi's <Python.h> preamble, but this TU is compiled
+ * standalone (its own .o, linked in), so it must pull them explicitly. */
 #include <cstddef>
 #include <cstdint>
 #include <string>
