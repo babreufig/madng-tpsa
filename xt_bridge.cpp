@@ -7,7 +7,7 @@
 #include "xt_local_particle.hpp"                        /* flavor select + LocalParticle struct + glue */
 
 /* Flavor symbol suffix. Defined before the generated includes so xt_knob.hpp can
- * name the per-flavor set_knob_table entry point.  tpsa_param = tpsa + knobs. */
+ * name the per-flavor set_knob_table entry point. tpsa_param = tpsa + knobs. */
 #if defined(XT_FLAVOR_TPSA) && defined(XT_KNOBS)
   #define XT_F(base) base##_tpsa_param
 #elif defined(XT_FLAVOR_TPSA)
@@ -85,9 +85,9 @@ void XT_F(xt_bridge_track_element)(int64_t type_id, void* el, void* p_){
 
 /* Record the full map into slot `slot` of an XtBridgeTpsaMonitor: mad_tpsa_copy of every
  * coordinate series into that slot's preallocated tpsa (Python preallocates and hands us
- * the tpsa_t* addresses).  A ParticlesMonitor cannot do this:
+ * the tpsa_t* addresses). A ParticlesMonitor cannot do this:
  * its ParticlesData store is six doubles per slot, i.e. the const part only.
- * The _num flavor has no map to record -> no-op (never reached; flag 3 is TPSA-only). */
+ * The _num flavor has no map to record -> no-op (never reached, flag 3 is TPSA-only). */
 #if defined(XT_FLAVOR_TPSA)
 static inline void xt_tpsa_monitor_record(XtBridgeTpsaMonitor mon, LocalParticle* part,
                                           int64_t slot){
@@ -108,14 +108,14 @@ static inline void xt_tpsa_monitor_record(XtBridgeTpsaMonitor, LocalParticle*, i
 /* Track [ele_start, ele_start + num_elements] once, with optional monitoring.
  * flag_monitor follows the same convention as the native track_line kernel:
  *   flag_monitor == 0  no monitor (`mon_` may be NULL)
- *                == 1  record once, before the range (at_turn slot; at_turn == 0 here)
+ *                == 1  record once, before the range (at_turn slot, at_turn == 0 here)
  *                == 2  element-by-element: record before every element + once at the end,
  *                      the monitor being in ebe_mode, whose store slot is at_element.
  *                == 3  element-by-element into an XtBridgeTpsaMonitor: the FULL map per
  *                      slot, not just its const part (TPSA flavor only).
  * `mon_` is a ParticlesMonitorData for flags 1-2 and an XtBridgeTpsaMonitor for flag 3.
  * `observe` (flag 3 only, may be NULL) selects which positions to record: a length
- * num_elements+1 array over the range (index k = before element ele_start+k; index
+ * num_elements+1 array over the range (index k = before element ele_start+k, index
  * num_elements = the end). The full map is recorded at positions where observe[k] != 0,
  * into consecutive monitor slots. NULL records every position (EBE), so the slot counter
  * then coincides with the position index.
@@ -123,7 +123,7 @@ static inline void xt_tpsa_monitor_record(XtBridgeTpsaMonitor, LocalParticle*, i
  * ele_start, like in xtrack's increment_at_element from a frsh particle). On loss, it
  * is the absolute line index, which Python maps back to the name.
  * Parametric knobs (tpsa_param flavor): strengths lift through the address-keyed knob
- * table (xt_knob.hpp), set from Python before the track; no per-element routing here. */
+ * table (xt_knob.hpp), set from Python before the track, with no per-element routing here. */
 extern "C"
 void XT_F(xt_bridge_track_line)(void* ref_, int64_t ele_start, int64_t num_elements,
                                void* p_, void* mon_, int64_t flag_monitor,

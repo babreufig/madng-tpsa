@@ -10,7 +10,7 @@
 
 #include <cstdint>
 
-/* XS_FLAG_* bit positions, generated from xtrack's track_flags.py.  The bridge
+/* XS_FLAG_* bit positions, generated from xtrack's track_flags.py. The bridge
  * always runs with track_flags==0, so every flag reads false (no backtrack, no taper,
  * cavity kick applied, local aperture checked). */
 #include "generated/xt_track_flags.h"
@@ -31,7 +31,7 @@
 
   /* physics branches on coordinates (if(Kx>0), NONZERO(K), ...) evaluate on the const
    * part (order 0), matching MAD-NG damap tracking semantics. mad_tpsa.hpp defines no
-   * relational operators; add them here (tpsa vs double, both directions, and tpsa vs
+   * relational operators, so add them here (tpsa vs double, both directions, and tpsa vs
    * tpsa). a[0] == mad_tpsa_geti(a.ptr(),0) is the const part. */
   #define XT_TPSA_REL(OP) \
     template<class A> inline bool operator OP (const mad::tpsa_base<A>& a, double b){ return a[0] OP b; } \
@@ -46,16 +46,10 @@
     #include <vector>           /* lifting double multipole arrays -> constant tpsa */
     #define XT_STRENGTH mad::tpsa
     #define XT_STRENGTH_CONST_ARG const XT_STRENGTH&
-    #define XT_STRENGTH_CONST(s) ((s)[0])
-    /* Knob-address slots (state lives in xt_knob.hpp, included after this by xt_bridge.cpp;
-     * the macros only expand at use sites in the physics, which come later still). */
-    #define XT_KNOB_SET(slot, addr) (xt_cur_addr[slot] = (addr))
-    #define XT_KNOB_CLEAR() xt_knob_clear_current()
     /* fabs(tpsa) = |const part| is already provided by mad_tpsa.hpp and found via argument-dependent lookup
-     * (the tpsa types live in namespace mad). This matches the XT_TPSA_REL const-part branching. */
-    /* Real knob-slot macros (track.h has no-op defaults). An element header that can use knobs
-     * records each strength field's buffer address in a per-element slot. xt_knob (in
-     * xt_knob.hpp, included after this) reads them. Only used in the knob translation unit. */
+     * (the tpsa types live in namespace mad). This matches the XT_TPSA_REL const-part branching.
+     * Knob-address slots (state lives in xt_knob.hpp, included after this by xt_bridge.cpp).
+     * The macros only expand at use sites in the physics, which come later still. */
     #define XT_KNOB_SET(slot, addr) (xt_cur_addr[slot] = (addr))
     #define XT_KNOB_CLEAR() xt_knob_clear_current()
   #endif
@@ -67,15 +61,15 @@
   #error "define XT_FLAVOR_TPSA or XT_FLAVOR_NUM"
 #endif
 
-/* The bridge ABI struct is an xobject (xtrack.tpsa._bridge_particle.XtBridgeParticle);
- * its C type is the opaque `struct XtBridgeParticle_s *` typedef `XtBridgeParticle`,
+/* The bridge ABI struct is an xobject (xtrack.tpsa._bridge_particle.XtBridgeParticle).
+ * Its C type is the opaque `struct XtBridgeParticle_s *` typedef `XtBridgeParticle`,
  * defined (with its accessors) by the generated element C-API. We only ever use it
  * through those accessors, so an incomplete forward declaration is enough here. */
 struct XtBridgeParticle_s;
 
-/* Coords/derived are pointers so the map is read/written in place.  Reference scalars
+/* Coords/derived are pointers so the map is read/written in place. Reference scalars
  * and the int bookkeeping are read through `bp` (bridge particle) via the generated XtBridgeParticle_get_*
- * accessors (bp is an opaque xobject pointer, not a plain struct).  The struct's field
+ * accessors (bp is an opaque xobject pointer, not a plain struct). The struct's field
  * set is emitted from xtrack's own struct generator (same var lists as the native SoA
  * LocalParticle) -- included here after the XT_COORD #define + the XtBridgeParticle_s
  * forward decl it references. */
@@ -96,14 +90,14 @@ static inline uint64_t LocalParticle_check_track_flag(LocalParticle* p, uint8_t 
 static inline void LocalParticle_exchange(LocalParticle*, int64_t, int64_t){}
 /* at_turn is out of scope for now. increment_at_turn is compiled but never called by the bridge. */
 static inline void LocalParticle_add_to_at_turn(LocalParticle*, int64_t){}
-/* A map is a single particle at turn 0.  The ParticlesMonitor kernel reads these; for
+/* A map is a single particle at turn 0. The ParticlesMonitor kernel reads these. For
  * placed monitors the store slot is (at_turn - start_at_turn) with at_turn == 0. */
 static inline int64_t LocalParticle_get_at_turn(LocalParticle*){ return 0; }
 static inline int64_t LocalParticle_get_particle_id(LocalParticle*){ return 0; }
 
 /* ax/ay (solenoid vector potential, set/read by the edge cancellation) are C-owned
  * variables and therefore not part of the ABI struct because they don't cross the bridge.
- * A fresh particle has ax=ay=0.  Their accessors are emitted with the coord accessors
+ * A fresh particle has ax=ay=0. Their accessors are emitted with the coord accessors
  * (LOCAL_VARS in gen_bridge.py). */
 
 #endif /* XT_LOCAL_PARTICLE_HPP */
