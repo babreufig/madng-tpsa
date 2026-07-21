@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xgtpsa"
+version = "0.1.0"
+description = "Python bindings to the GTPSA (truncated power series) engine of MAD-NG"
+requires-python = ">=3.9"
+dependencies = ["cffi", "numpy"]
+
+[tool.setuptools]
+packages = ["xgtpsa"]
+
+# _core/ is produced by build.sh, not by pip: install with `pip install -e .` (or put the
+# repo on PYTHONPATH) and run ./build.sh once.
+[tool.setuptools.package-data]
+xgtpsa = ["_core/lib/*.so", "_core/include/*"]

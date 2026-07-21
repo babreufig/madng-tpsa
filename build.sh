@@ -6,12 +6,14 @@
 #
 # This is the underlying C code MAD-NG uses for its TPSA/DA engine. We do not build the
 # LuaJIT/Mad-application layer and use only the GTPSA core as a standalone library,
-# which can be called from Python. For the bridge between Python and C, there are two module flavors
-# that are built on demand depending on the selected type (physics with real numbers, or with TPSA).
-# This script only creates libgtpsa_core.so as well as the generated sources those module compiles use (gen_bridge.py, below).
+# which can be called from Python (the xgtpsa package).
 #
-#   ./build.sh              # minimal real-TPSA build (fetches MAD-NG if needed)
-#   ./build.sh --full       # also includes complex TPSA + erf/Faddeeva functions
+# The artifacts are installed into xgtpsa/_core: lib/libgtpsa_core.so (dlopened by
+# xgtpsa) and include/mad_*.h[pp] (the headers to which other users compile against.
+# Xtrack builds its element bridge with xgtpsa.include_dir()). Nothing here knows about xtrack.
+#
+#   ./build.sh                                # minimal real-TPSA build (fetches MAD-NG if needed)
+#   ./build.sh --full                         # also includes complex TPSA + erf/Faddeeva functions
 #   MAD_SRC=/path/to/MAD-NG/src ./build.sh    # use a local checkout, skip the fetch
 #   ./build.sh /path/to/MAD-NG/src            # same
 #
@@ -46,7 +48,7 @@ done
 HERE="$(cd "$(dirname "$0")" && pwd)"
 BUILD="$HERE/build"
 
-# Pinned upstream GTPSA sources.  Kept OUT of this repo (GPLv3, see above) and out of
+# Pinned upstream GTPSA sources.  Kept out of this repo (GPLv3, see above) and out of
 # BUILD (which is wiped below), so the clone survives rebuilds. Bump both together.
 MAD_URL="${MAD_URL:-https://github.com/MethodicalAcceleratorDesign/MAD.git}"
 MAD_TAG="${MAD_TAG:-v1.1.14}"
@@ -107,24 +109,20 @@ gcc -std=c99   "${CFLAGS[@]}" -c $(printf '%s ' "${SRC[@]}" | sed 's/mad_mem.c//
 gcc -std=gnu11 "${CFLAGS[@]}" -c mad_mem.c 2>/dev/null || true   # only if present
 [ -n "$STUB" ] && gcc -std=c99 "${CFLAGS[@]}" -c gtpsa_stubs.c
 
-# The GTPSA-core .so consists only of the mad_* engine and LAPACK/BLAS (no bridge).
-# The xt_bridge compiles below. Pure C => link with gcc (no libstdc++).  --no-undefined keeps it
-# self-contained (minimal relies on stubs).
+# The GTPSA-core .so consists only of the mad_* engine and LAPACK/BLAS. Pure C => link
+# with gcc (no libstdc++). --no-undefined keeps it self-contained (minimal relies on
+# stubs).
 echo ">>> linking libgtpsa_core.so (GTPSA core only) ..."
 gcc -shared -Wl,--no-undefined -o libgtpsa_core.so *.o \
     -l:liblapack.so.3 -l:libblas.so.3 -lm
-cp -f libgtpsa_core.so "$HERE/libgtpsa_core.so"
-echo ">>> built $HERE/libgtpsa_core.so ($(stat -c%s "$HERE/libgtpsa_core.so") bytes, $(ls *.o | wc -l) core objects)"
 
-# Generate the Python-C bridge artifacts. xt_bridge.cpp is NOT compiled here, as the
-# flavor modules are built on demand by xtrack (_gtpsa.bridge_lib -> xobjects build_kernels)
-# and cached under _bridge_cache/. This step only outputs the sources those module compiles consume,
-# which are saved in generated/ (element C-API, dispatch, access to LocalParticle).
-# gen_bridge.py imports xtrack/xobjects from the active environment -- whichever ones
-# `python -c "import xtrack"` resolves to are the ones written into.
-python -c "import xtrack, xobjects" 2>/dev/null || {
-  echo "ERROR: xtrack + xobjects must be importable (pip install -e ...)" >&2; exit 1; }
-echo ">>> xtrack     : $(python -c 'import xtrack,os;print(os.path.dirname(xtrack.__file__))')"
-echo ">>> generating bridge artifacts (gen_bridge.py) ..."
-python "$HERE/gen_bridge.py"
-echo ">>> done. Bridge modules build lazily on first use (xtrack _gtpsa.bridge_lib)."
+# Install into the package: xgtpsa/_core/{lib,include}. The headers go with it because
+# consumers (like the xtrack element bridge) compile C++ against mad_tpsa.hpp.
+CORE="$HERE/xgtpsa/_core"
+rm -rf "$CORE"; mkdir -p "$CORE/lib" "$CORE/include"
+cp -f libgtpsa_core.so "$CORE/lib/"
+cp -f mad_*.h mad_*.hpp "$CORE/include/"
+[ -d sse ] && cp -rf sse "$CORE/include/"
+echo ">>> installed $CORE/lib/libgtpsa_core.so ($(stat -c%s "$CORE/lib/libgtpsa_core.so") bytes, $(ls *.o | wc -l) core objects)"
+echo ">>> installed $(ls "$CORE/include" | wc -l) headers into $CORE/include"
+echo ">>> done. Use it with: python -c 'import xgtpsa; print(xgtpsa.core_library())'"
