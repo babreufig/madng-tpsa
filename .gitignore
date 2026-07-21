@@ -1,5 +1,5 @@
 build/
-_bridge_cache/
+xgtpsa/_core/
 .mad-ng-*/
 *.o
 *.a
@@ -11,4 +11,4 @@ __pycache__/
 *.sw[op]
 *~
 .DS_Store
-generated/
+*.egg-info
