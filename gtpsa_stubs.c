@@ -16,7 +16,7 @@
     fprintf(stderr,                                                           \
             "gtpsa: '%s' is unavailable in the minimal build "                \
             "(complex-TPSA / erf functions disabled). Rebuild with "          \
-            "gtpsa_lib/build.sh --full.\n", #name);                           \
+            "xgtpsa/build.sh --full.\n", #name);                           \
     abort();                                                                  \
   }
 

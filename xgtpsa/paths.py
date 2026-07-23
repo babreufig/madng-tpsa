@@ -40,7 +40,7 @@ def _pick(candidates: list[str], marker: str, what: str) -> str:
         if os.path.exists(os.path.join(d, marker)):
             return d
     raise RuntimeError(
-        f"{what} not found (looked in {candidates}); build it with gtpsa_lib/build.sh"
+        f"{what} not found (looked in {candidates}); build it with xgtpsa/build.sh"
     )
 
 
