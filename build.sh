@@ -35,6 +35,9 @@
 
 set -euo pipefail
 
+CC="${CC:-cc}"
+echo "Compiler we're using is $CC"
+
 MODE="minimal"
 MAD_SRC="${MAD_SRC:-}"                  # set (env or arg) -> use it, skip the fetch
 for arg in "$@"; do
@@ -83,8 +86,20 @@ cp -a "$MAD_SRC"/mad_*.h "$MAD_SRC"/mad_*.hpp "$MAD_SRC"/mad_*.c "$MAD_SRC"/sse 
 cp -a "$MAD_SRC"/libgtpsa/mad_*.c "$MAD_SRC"/libgtpsa/*.h . 2>/dev/null || true
 rm -f mad_main.c mad_fft.c mad_nlopt.c mad_nlopt.h   # MAD app / FFT / nlopt
 
-CFLAGS=(-W -Wall -Wextra -O3 -fPIC -ffast-math -ftree-vectorize
+CFLAGS=(-include stdlib.h -W -Wall -Wextra -O3 -fPIC -ffast-math -ftree-vectorize
         -Wno-vla-parameter -Wno-misleading-indentation -Wno-empty-body -I.)
+LDFLAGS=()
+
+if "$CC" --version 2>/dev/null | grep -qi clang; then
+  CFLAGS=(-include stdlib.h -W -Wall -Wextra -O3 -fPIC -ffast-math -ftree-vectorize
+          -Wno-array-parameter -Wno-misleading-indentation -Wno-empty-body
+          -Wno-unknown-attributes -I.)
+
+  # MAD-NG uses GCC's malloc(deallocator,idx) attribute extension.  Clang accepts
+  # __attribute__((malloc)) but not that extended form, so patch only the copied
+  # build header and leave MAD_SRC untouched.
+  LC_ALL=C perl -0pi -e 's/malloc\(mad_free,1\),//g; s/,malloc\(mad_free,1\)//g' mad_mem.h
+fi
 
 # Source set. mad_mat/mad_vec are only needed for map inversion (mad_tpsa_minv,
 # pulls in LAPACK/BLAS); mad_str for I/O; mad_num for special-fn helpers.
@@ -105,16 +120,27 @@ fi
 
 # mad_mem.c needs C11 (because of using max_align_t), the rest can build as C99.
 echo ">>> compiling ${#SRC[@]} core sources ..."
-gcc -std=c99   "${CFLAGS[@]}" -c $(printf '%s ' "${SRC[@]}" | sed 's/mad_mem.c//') $SSE
-gcc -std=gnu11 "${CFLAGS[@]}" -c mad_mem.c 2>/dev/null || true   # only if present
-[ -n "$STUB" ] && gcc -std=c99 "${CFLAGS[@]}" -c gtpsa_stubs.c
+"$CC" -std=c99   "${CFLAGS[@]}" -c $(printf '%s ' "${SRC[@]}" | sed 's/mad_mem.c//') $SSE
+"$CC" -std=gnu11 "${CFLAGS[@]}" -c mad_mem.c 2>/dev/null || true   # only if present
+[ -n "$STUB" ] && "$CC" -std=c99 "${CFLAGS[@]}" -c gtpsa_stubs.c
 
 # The GTPSA-core .so consists only of the mad_* engine and LAPACK/BLAS. Pure C => link
 # with gcc (no libstdc++). --no-undefined keeps it self-contained (minimal relies on
 # stubs).
 echo ">>> linking libgtpsa_core.so (GTPSA core only) ..."
-gcc -shared -Wl,--no-undefined -o libgtpsa_core.so *.o \
-    -l:liblapack.so.3 -l:libblas.so.3 -lm
+
+case "$(uname -s)" in
+    Darwin)
+        LAPACK_LIBS=(-framework Accelerate)
+        LDFLAGS+=("-Wl,-undefined,error")
+        ;;
+    Linux)
+        LAPACK_LIBS=("-l:liblapack.so.3" "-l:libblas.so.3")
+        LDFLAGS+=("-Wl,--no-undefined")
+        ;;
+esac
+
+"$CC" -shared "${LDFLAGS[@]}" -o libgtpsa_core.so *.o "${LAPACK_LIBS[@]}" -lm
 
 # Install into the package: xgtpsa/_core/{lib,include}. The headers go with it because
 # consumers (like the xtrack element bridge) compile C++ against mad_tpsa.hpp.
@@ -123,6 +149,11 @@ rm -rf "$CORE"; mkdir -p "$CORE/lib" "$CORE/include"
 cp -f libgtpsa_core.so "$CORE/lib/"
 cp -f mad_*.h mad_*.hpp "$CORE/include/"
 [ -d sse ] && cp -rf sse "$CORE/include/"
-echo ">>> installed $CORE/lib/libgtpsa_core.so ($(stat -c%s "$CORE/lib/libgtpsa_core.so") bytes, $(ls *.o | wc -l) core objects)"
+
+lib="$CORE/lib/libgtpsa_core.so"
+bytes=$(wc -c < "$lib")
+objects=$(find . -maxdepth 1 -name '*.o' -type f | wc -l)
+
+echo ">>> installed $lib ($bytes bytes, $objects core objects)"
 echo ">>> installed $(ls "$CORE/include" | wc -l) headers into $CORE/include"
 echo ">>> done. Use it with: python -c 'import xgtpsa; print(xgtpsa.core_library())'"
