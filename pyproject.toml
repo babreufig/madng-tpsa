@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
+requires = ["scikit-build-core>=0.10", "cffi", "numpy"]
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "xgtpsa"
@@ -9,10 +9,21 @@ description = "Python bindings to the GTPSA (truncated power series) engine of M
 requires-python = ">=3.9"
 dependencies = ["cffi", "numpy"]
 
-[tool.setuptools]
-packages = ["xgtpsa"]
+[tool.scikit-build]
+wheel.packages = ["src/xgtpsa"]
+cmake.version = ">=3.18"
+build-dir = "build/{wheel_tag}"
 
-# _core/ is produced by build.sh, not by pip: install with `pip install -e .` (or put the
-# repo on PYTHONPATH) and run ./build.sh once.
-[tool.setuptools.package-data]
-xgtpsa = ["_core/lib/*.so", "_core/include/*"]
+[tool.scikit-build.sdist]
+include = [
+  "CMakeLists.txt",
+  "gtpsa_stubs.c",
+  "madng/src/mad_*.c",
+  "madng/src/mad_*.h",
+  "madng/src/mad_*.hpp",
+  "madng/src/sse/**",
+  "madng/src/libgtpsa/mad_*.c",
+  "madng/src/libgtpsa/*.h",
+  "src/xgtpsa/include/madng_tpsa.h",
+]
+

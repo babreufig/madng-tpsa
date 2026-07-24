@@ -1,0 +1,3 @@
+[submodule "madng"]
+	path = madng
+	url = git@github.com:MethodicalAcceleratorDesign/MAD-NG.git

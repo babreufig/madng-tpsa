@@ -6,7 +6,7 @@ import pytest
 import xgtpsa
 
 pytestmark = pytest.mark.skipif(
-    not xgtpsa.have_core(), reason="libgtpsa_core.so unavailable; run build.sh"
+    not xgtpsa.have_core(), reason="madng_tpsa shared library unavailable; build package"
 )
 
 
@@ -29,7 +29,7 @@ def test_paths():
     import os
 
     assert os.path.exists(xgtpsa.core_library())
-    assert os.path.exists(os.path.join(xgtpsa.include_dir(), "mad_tpsa.hpp"))
+    assert os.path.exists(os.path.join(xgtpsa.include_dir(), "madng_tpsa.h"))
 
 
 def test_lib_and_ffi_singletons():

@@ -1,4 +1,4 @@
-/* gtpsa_stubs.c - stubs for the minimal build (see build.sh --minimal).
+/* gtpsa_stubs.c - stubs for the minimal CMake build.
  *
  * The real-TPSA functions erf/erfc/erfcx/erfi/wf are implemented in MAD-NG through
  * complex TPSA (mad_ctpsa_*) and the Faddeeva package (mad_erfw.c). Our
@@ -6,7 +6,7 @@
  * whole mad_ctpsa_*.o + mad_erfw.o set and links these aborting
  * stubs instead, keeping the shared object free of undefined symbols.
  *
- * If erf/wf or the complex TPSA is needed, rebuild with the full target: ./build.sh --full
+ * If erf/wf or the complex TPSA is needed, add a full CMake build variant.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,8 +15,7 @@
   void name(void) {                                                           \
     fprintf(stderr,                                                           \
             "gtpsa: '%s' is unavailable in the minimal build "                \
-            "(complex-TPSA / erf functions disabled). Rebuild with "          \
-            "xgtpsa/build.sh --full.\n", #name);                           \
+            "(complex-TPSA / erf functions disabled).\n", #name);            \
     abort();                                                                  \
   }
 

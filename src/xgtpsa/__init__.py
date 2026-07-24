@@ -11,8 +11,8 @@ algebraic operations. The coefficients are the derivatives.
     f = x * x + 2.0 * y
     f.const_part, f.grad(), f.monomial_coeffs()
 
-This package can be used standalone: it needs only the built core (``build.sh``) and knows
-nothing about tracking.
+This package can be used standalone: it needs only the packaged CMake-built core and
+knows nothing about tracking.
 ``xtrack.tpsa`` is a consumer, compiling its element bridge
 against ``include_dir()`` and linking ``core_library()``.
 """
