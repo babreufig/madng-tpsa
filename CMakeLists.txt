@@ -17,59 +17,49 @@ file(GLOB MAD_HEADERS CONFIGURE_DEPENDS
   "${MADNG_SRC}/mad_*.hpp"
 )
 file(GLOB LIBGTPSA_HEADERS CONFIGURE_DEPENDS "${MADNG_SRC}/libgtpsa/*.h")
-file(GLOB SSE_SOURCES CONFIGURE_DEPENDS "${MADNG_SRC}/sse/*")
 file(COPY ${MAD_HEADERS} ${LIBGTPSA_HEADERS} DESTINATION "${GTPSA_BUILD_SRC}")
 if(EXISTS "${MADNG_SRC}/sse")
   file(COPY "${MADNG_SRC}/sse" DESTINATION "${GTPSA_BUILD_SRC}")
 endif()
 
 if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+  # MAD-NG annotates allocators with GCC's extended malloc(deallocator,idx)
+  # attribute. Clang supports the plain malloc attribute, but not this extended
+  # spelling, so patch only the copied build header and leave the submodule
+  # source untouched.
   file(READ "${GTPSA_BUILD_SRC}/mad_mem.h" MAD_MEM_H)
   string(REPLACE "malloc(mad_free,1)," "" MAD_MEM_H "${MAD_MEM_H}")
   string(REPLACE ",malloc(mad_free,1)" "" MAD_MEM_H "${MAD_MEM_H}")
   file(WRITE "${GTPSA_BUILD_SRC}/mad_mem.h" "${MAD_MEM_H}")
 endif()
 
-set(MADNG_TPSA_SOURCE_NAMES
-  mad_tpsa.c
-  mad_tpsa_ops.c
-  mad_tpsa_div.c
-  mad_tpsa_fun.c
-  mad_tpsa_io.c
-  mad_tpsa_mops.c
-  mad_tpsa_comp.c
-  mad_tpsa_minv.c
-  mad_desc.c
-  mad_mono.c
-  mad_bit.c
-  mad_log.c
-  mad_num.c
-  mad_mat.c
-  mad_vec.c
-  mad_str.c
-  mad_cst.c
-  mad_mem.c
+file(GLOB MADNG_SOURCE_PATHS CONFIGURE_DEPENDS "${MADNG_SRC}/mad_*.c")
+list(REMOVE_ITEM MADNG_SOURCE_PATHS
+  "${MADNG_SRC}/mad_main.c"
+  "${MADNG_SRC}/mad_fft.c"
+  "${MADNG_SRC}/mad_nlopt.c"
 )
+list(APPEND MADNG_SOURCE_PATHS "${MADNG_SRC}/libgtpsa/mad_log.c")
+
+if(EXISTS "${MADNG_SRC}/sse" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+  # Streaming SIMD Extensions (SSE) are x86-only and cannot compile on Apple
+  # Silicon/arm64. These sources provide optional vectorized mono/bit routines;
+  # the generic C implementations in mad_mono.c and mad_bit.c are still built,
+  # so omitting SSE on non-x86 platforms preserves functionality.
+  file(GLOB MADNG_SSE_SOURCE_PATHS CONFIGURE_DEPENDS "${MADNG_SRC}/sse/*.c")
+  list(APPEND MADNG_SOURCE_PATHS ${MADNG_SSE_SOURCE_PATHS})
+endif()
 
 set(MADNG_TPSA_SOURCES)
-foreach(source_name IN LISTS MADNG_TPSA_SOURCE_NAMES)
-  if(EXISTS "${MADNG_SRC}/${source_name}")
-    set(source_path "${MADNG_SRC}/${source_name}")
-  elseif(EXISTS "${MADNG_SRC}/libgtpsa/${source_name}")
-    set(source_path "${MADNG_SRC}/libgtpsa/${source_name}")
-  else()
-    message(FATAL_ERROR "Could not find ${source_name} in ${MADNG_SRC} or ${MADNG_SRC}/libgtpsa")
-  endif()
-  configure_file("${source_path}" "${GTPSA_BUILD_SRC}/${source_name}" COPYONLY)
-  list(APPEND MADNG_TPSA_SOURCES "${GTPSA_BUILD_SRC}/${source_name}")
+foreach(source_path IN LISTS MADNG_SOURCE_PATHS)
+  file(RELATIVE_PATH relative_source_path "${MADNG_SRC}" "${source_path}")
+  configure_file(
+    "${source_path}"
+    "${GTPSA_BUILD_SRC}/${relative_source_path}"
+    COPYONLY
+  )
+  list(APPEND MADNG_TPSA_SOURCES "${GTPSA_BUILD_SRC}/${relative_source_path}")
 endforeach()
-
-configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/gtpsa_stubs.c"
-  "${GTPSA_BUILD_SRC}/gtpsa_stubs.c"
-  COPYONLY
-)
-list(APPEND MADNG_TPSA_SOURCES "${GTPSA_BUILD_SRC}/gtpsa_stubs.c")
 
 add_library(madng_tpsa SHARED ${MADNG_TPSA_SOURCES})
 set_target_properties(madng_tpsa PROPERTIES
@@ -109,15 +99,16 @@ else()
   )
 endif()
 
+find_package(BLAS REQUIRED)
+find_package(LAPACK REQUIRED)
+
 if(APPLE)
-  target_link_options(madng_tpsa PRIVATE "-Wl,-undefined,error")
-  target_link_libraries(madng_tpsa PRIVATE "-framework Accelerate" m)
+  target_link_options(madng_tpsa PRIVATE "LINKER:SHELL:-undefined error")
 else()
-  find_package(BLAS REQUIRED)
-  find_package(LAPACK REQUIRED)
-  target_link_options(madng_tpsa PRIVATE "-Wl,--no-undefined")
-  target_link_libraries(madng_tpsa PRIVATE ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES} m)
+  target_link_options(madng_tpsa PRIVATE "LINKER:--no-undefined")
 endif()
+
+target_link_libraries(madng_tpsa PRIVATE LAPACK::LAPACK BLAS::BLAS m)
 
 set(XGTPSA_SOURCE_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/xgtpsa/lib")
 add_custom_command(TARGET madng_tpsa POST_BUILD

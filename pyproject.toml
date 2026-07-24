@@ -17,7 +17,6 @@ build-dir = "build/{wheel_tag}"
 [tool.scikit-build.sdist]
 include = [
   "CMakeLists.txt",
-  "gtpsa_stubs.c",
   "madng/src/mad_*.c",
   "madng/src/mad_*.h",
   "madng/src/mad_*.hpp",
@@ -26,4 +25,3 @@ include = [
   "madng/src/libgtpsa/*.h",
   "src/xgtpsa/include/madng_tpsa.h",
 ]
-
