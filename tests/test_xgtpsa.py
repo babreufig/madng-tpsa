@@ -1,19 +1,20 @@
 """Tests for the standalone GTPSA engine bindings. Nothing here imports xtrack."""
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
 import xgtpsa
 
 pytestmark = pytest.mark.skipif(
-    not xgtpsa.have_core(), reason="madng_tpsa shared library unavailable; build package"
+    not xgtpsa.have_core(),
+    reason="madng_tpsa shared library unavailable; build package",
 )
 
 
 def test_paths():
-    import os
-
-    assert os.path.exists(xgtpsa.core_library())
+    assert Path(xgtpsa.core_library()).exists()
 
 
 def test_lib_and_ffi_singletons():
@@ -23,10 +24,11 @@ def test_lib_and_ffi_singletons():
 
 # --- descriptors ---------------------------------------------------------- #
 
+
 def test_descriptor_is_reused():
     a = xgtpsa.Descriptor.new(6, 2)
     b = xgtpsa.Descriptor.new(6, 2)
-    assert a is b                                  # GTPSA dedups equivalent descriptors
+    assert a is b  # GTPSA dedups equivalent descriptors
     assert a != xgtpsa.Descriptor.new(6, 3)
     assert a != xgtpsa.Descriptor.new(4, 2)
     assert a in xgtpsa.live_descriptors()
@@ -56,8 +58,9 @@ def test_is_valid_monomial():
     # predicate is the only safe way to ask.
     d = xgtpsa.Descriptor.new(2, 2)
     assert d.is_valid_monomial((1, 1))
-    assert not d.is_valid_monomial((2, 1))         # total order 3 > 2
-    assert not d.is_valid_monomial((1, 1, 1))      # wrong length
+    assert not d.is_valid_monomial((2, 1))  # total order 3 > 2
+    assert not d.is_valid_monomial((1, 1, 1))  # wrong length
+
 
 def test_live_descriptors_and_wrap():
     d = xgtpsa.Descriptor.new(6, 4)
@@ -67,11 +70,13 @@ def test_live_descriptors_and_wrap():
     # the same C pointer always wraps to the same Python object
     assert xgtpsa.descriptor._wrap_desc(d.ptr) is d
 
+
 # --- series --------------------------------------------------------------- #
+
 
 def test_var_is_an_identity_seed():
     d = xgtpsa.Descriptor.new(6, 2)
-    t = xgtpsa.Tpsa.var(d, 2, 0.25)                # variable indices are 1-based
+    t = xgtpsa.Tpsa.var(d, 2, 0.25)  # variable indices are 1-based
     assert t.const_part == 0.25
     assert t.grad() == [0, 1, 0, 0, 0, 0]
     assert t.descriptor is d
@@ -143,6 +148,7 @@ def test_monomial_coeffs_skips_zeros_and_tiny_terms():
 
 # --- parameters ----------------------------------------------------------- #
 
+
 def test_param_seed_and_param_grad():
     d = xgtpsa.Descriptor.new(2, 2, num_parameters=2, param_order=1)
     x = xgtpsa.Tpsa.var(d, 1, 0.5)
@@ -150,8 +156,8 @@ def test_param_seed_and_param_grad():
 
     assert k.const_part == 3.0
     assert k.param_grad() == [1.0, 0.0]
-    assert k.grad() == [0.0, 0.0]                  # a parameter is not a variable
+    assert k.grad() == [0.0, 0.0]  # a parameter is not a variable
 
     f = k * x
-    assert f.grad() == pytest.approx([3.0, 0.0])   # d(kx)/dx = k
-    assert f.get((1, 0, 1, 0)) == pytest.approx(1.0)   # mixed d2/dx dk
+    assert f.grad() == pytest.approx([3.0, 0.0])  # d(kx)/dx = k
+    assert f.get((1, 0, 1, 0)) == pytest.approx(1.0)  # mixed d2/dx dk

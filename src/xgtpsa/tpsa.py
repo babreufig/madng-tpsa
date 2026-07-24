@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Sequence
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from . import _cffi
 from ._cffi import ffi, lib
 from .descriptor import Descriptor, _wrap_desc
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
 
 _DFLT = 255  # full descriptor order (mad_tpsa_dflt)
 
@@ -25,7 +28,7 @@ class Tpsa:
             self._p = lib().mad_tpsa_newd(desc.ptr, _DFLT)
 
     def __del__(self) -> None:
-        # Read the loaded handle directly: at interpreter shutdown lib() must not reload.
+        # Read the loaded handle directly: shutdown must not reload the library.
         if getattr(self, "_p", None) is not None and _cffi._lib is not None:
             _cffi._lib.mad_tpsa_del(self._p)
             self._p = None
@@ -64,7 +67,7 @@ class Tpsa:
     @property
     def order(self) -> int:
         """This series' max order (queried from C)."""
-        return lib().mad_tpsa_ord(self._p, False)
+        return lib().mad_tpsa_ord(self._p, False)  # noqa: FBT003
 
     @property
     def const_part(self) -> float:
@@ -82,7 +85,7 @@ class Tpsa:
         lib().mad_tpsa_seti(self._p, 0, 0.0, float(v))
 
     def set(self, monomial: Iterable[int], v: float) -> None:
-        """Set the coefficient of ``monomial`` (iterable of per-variable orders) to ``v``."""
+        """Set the coefficient of ``monomial`` to ``v``."""
         m = [int(x) for x in monomial]
         arr = ffi().new("unsigned char[]", m)
         lib().mad_tpsa_setm(self._p, len(m), arr, 0.0, float(v))
@@ -92,11 +95,11 @@ class Tpsa:
     ) -> float | np.ndarray:
         """Coefficient(s) for one monomial or several.
 
-        A monomial is a length-``nv`` tuple of per-variable orders (canonical form; the
-        same shape ``monomial_coeffs`` returns as keys).  ``monomials`` is either one such
-        monomial (-> a ``float``) or an iterable of them, e.g. a list of tuples or an
-        ``(N, nv)`` array (-> a length-``N`` ``numpy`` array).  Arrays are accepted and
-        converted to tuples internally.
+        A monomial is a length-``nv`` tuple of per-variable orders, the same
+        shape ``monomial_coeffs`` returns as keys. ``monomials`` is either one
+        such monomial (-> a ``float``) or an iterable of them, e.g. a list of
+        tuples or an ``(N, nv)`` array (-> a length-``N`` ``numpy`` array).
+        Arrays are accepted and converted to tuples internally.
         """
         m = np.asarray(monomials, dtype=int)
         if m.ndim == 1:
@@ -122,7 +125,7 @@ class Tpsa:
         return out
 
     def grad(self) -> list[float]:
-        """Order-1 coefficients (d out / d var_j), one per variable (parameters excluded)."""
+        """Order-1 coefficients, one per variable."""
         n = self.descriptor.n_variables
         g = []
         for j in range(n):

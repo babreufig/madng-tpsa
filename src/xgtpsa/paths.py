@@ -2,8 +2,8 @@
 
 The CMake build installs its artifacts into ``xgtpsa`` (``lib/libmadng_tpsa.*`` +
 ``include/mad_tpsa.hpp``), so editable installs and wheels have the same package shape.
-The paths are the contract consumers compile against: ``xtrack.tpsa`` builds its bridge with
-``-I include_dir()`` and links ``core_library()``.
+The paths are the contract consumers compile against: ``xtrack.tpsa`` builds its
+bridge with ``-I include_dir()`` and links ``core_library()``.
 
 ``XGTPSA_LIB`` (a file or a directory) overrides the packaged location.
 """
@@ -12,11 +12,12 @@ from __future__ import annotations
 
 import os
 import sysconfig
+from pathlib import Path
 
 CORE_BASENAME = "madng_tpsa"
-_PKG = os.path.dirname(os.path.abspath(__file__))
-_LIB = os.path.join(_PKG, "lib")
-_INCLUDE = os.path.join(_PKG, "include")
+_PKG = Path(__file__).resolve().parent
+_LIB = _PKG / "lib"
+_INCLUDE = _PKG / "include"
 
 
 def _library_names() -> list[str]:
@@ -24,10 +25,12 @@ def _library_names() -> list[str]:
     candidates = []
     if suffix:
         candidates.append(f"lib{CORE_BASENAME}{suffix}")
-    candidates.extend([
-        f"lib{CORE_BASENAME}.so",
-        f"lib{CORE_BASENAME}.dylib",
-    ])
+    candidates.extend(
+        [
+            f"lib{CORE_BASENAME}.so",
+            f"lib{CORE_BASENAME}.dylib",
+        ]
+    )
     return list(dict.fromkeys(candidates))
 
 
@@ -36,29 +39,30 @@ def _base() -> str | None:
     p = os.environ.get("XGTPSA_LIB")
     if not p:
         return None
-    return p if os.path.isdir(p) else os.path.dirname(os.path.abspath(p))
+    path = Path(p)
+    return str(path if path.is_dir() else path.resolve().parent)
 
 
-def _pick(candidates: list[str], markers: list[str], what: str) -> str:
+def _pick(candidates: list[Path | str], markers: list[str], what: str) -> str:
     for d in candidates:
         for marker in markers:
-            if os.path.exists(os.path.join(d, marker)):
-                return os.path.join(d, marker)
-    raise RuntimeError(
-        f"{what} not found (looked in {candidates}); build it with pip install -e ."
-    )
+            path = Path(d) / marker
+            if path.exists():
+                return str(path)
+    raise RuntimeError(f"{what} not found (looked in {candidates}); build it with pip install -e .")
 
 
 def core_library() -> str:
     """Absolute path to ``libmadng_tpsa.so`` or ``libmadng_tpsa.dylib``."""
     b = _base()
     if b:
+        base = Path(b)
         cands = [
-            b,
-            os.path.join(b, "lib"),
-            os.path.join(b, "xgtpsa", "lib"),
-            os.path.join(b, "src", "xgtpsa", "lib"),
-            os.path.join(b, "build"),
+            base,
+            base / "lib",
+            base / "xgtpsa" / "lib",
+            base / "src" / "xgtpsa" / "lib",
+            base / "build",
         ]
     else:
         cands = [_LIB]
@@ -69,15 +73,16 @@ def include_dir() -> str:
     """Directory holding the public MAD-NG GTPSA headers."""
     b = _base()
     if b:
+        base = Path(b)
         cands = [
-            os.path.join(b, "include"),
-            os.path.join(b, "xgtpsa", "include"),
-            os.path.join(b, "src", "xgtpsa", "include"),
-            b,
+            base / "include",
+            base / "xgtpsa" / "include",
+            base / "src" / "xgtpsa" / "include",
+            base,
         ]
     else:
         cands = [_INCLUDE]
-    return os.path.dirname(_pick(cands, ["mad_tpsa.hpp"], "mad_tpsa.hpp"))
+    return str(Path(_pick(cands, ["mad_tpsa.hpp"], "mad_tpsa.hpp")).parent)
 
 
 def have_core() -> bool:
