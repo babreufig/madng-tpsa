@@ -1,6 +1,6 @@
 # xgtpsa - GTPSA (truncated power series) for Python
 
-This repository builds `madng_tpsa.so` on Linux or `madng_tpsa.dylib` on macOS:
+This repository builds `libmadng_tpsa.so` on Linux or `libmadng_tpsa.dylib` on macOS:
 the Generalized Truncated Power Series Algebra engine extracted from MAD-NG, without
 the LuaJIT/MAD application layer. The Python package uses CFFI ABI mode (`dlopen`),
 so importing `xgtpsa` does not compile anything at runtime.
@@ -18,7 +18,7 @@ f.const_part, f.grad(), f.monomial_coeffs()
 Nothing here knows about tracking or xtrack. Consumers can discover the packaged
 native artifacts with:
 
-- `xgtpsa.core_library()` - path to `xgtpsa/lib/madng_tpsa.{so,dylib}`
+- `xgtpsa.core_library()` - path to `xgtpsa/lib/libmadng_tpsa.{so,dylib}`
 - `xgtpsa.include_dir()` - path to `xgtpsa/include`
 
 ## Build
@@ -32,9 +32,9 @@ python -m build
 ```
 
 `pip install -e .` runs CMake and copies the generated shared library into
-`src/xgtpsa/lib/`, matching the installed wheel layout. The public header
-`src/xgtpsa/include/madng_tpsa.h` is checked into Git; platform shared libraries in
-`src/xgtpsa/lib/` are generated artifacts and ignored by Git.
+`src/xgtpsa/lib/`, matching the installed wheel layout. MAD-NG headers copied into
+`src/xgtpsa/include/` and platform shared libraries in `src/xgtpsa/lib/` are generated
+artifacts and ignored by Git.
 
 By default CMake builds from the bundled `madng/src` checkout. To use another MAD-NG
 source tree:

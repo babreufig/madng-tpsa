@@ -70,7 +70,6 @@ endforeach()
 
 add_library(madng_tpsa SHARED ${MADNG_TPSA_SOURCES})
 set_target_properties(madng_tpsa PROPERTIES
-  PREFIX ""
   OUTPUT_NAME "madng_tpsa"
   C_STANDARD 11
   C_STANDARD_REQUIRED ON
@@ -117,17 +116,31 @@ endif()
 
 target_link_libraries(madng_tpsa PRIVATE LAPACK::LAPACK BLAS::BLAS m)
 
+set(MADNG_PUBLIC_HEADERS
+  mad_tpsa.hpp
+  mad_num.h
+  mad_def.h
+  mad_tpsa.h
+  mad_mono.h
+  mad_desc.h
+)
+list(TRANSFORM MADNG_PUBLIC_HEADERS PREPEND "${MADNG_SRC}/" OUTPUT_VARIABLE MADNG_PUBLIC_HEADER_PATHS)
+
 set(XGTPSA_SOURCE_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/xgtpsa/lib")
+set(XGTPSA_SOURCE_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/xgtpsa/include")
 add_custom_command(TARGET madng_tpsa POST_BUILD
   COMMAND "${CMAKE_COMMAND}" -E make_directory "${XGTPSA_SOURCE_LIB_DIR}"
+  COMMAND "${CMAKE_COMMAND}" -E make_directory "${XGTPSA_SOURCE_INCLUDE_DIR}"
   COMMAND "${CMAKE_COMMAND}" -E copy "$<TARGET_FILE:madng_tpsa>" "${XGTPSA_SOURCE_LIB_DIR}/$<TARGET_FILE_NAME:madng_tpsa>"
-  COMMENT "Copying madng_tpsa shared library into src/xgtpsa/lib"
+  COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${MADNG_PUBLIC_HEADER_PATHS} "${XGTPSA_SOURCE_INCLUDE_DIR}"
+  COMMENT "Copying madng_tpsa shared library and MAD-NG headers into src/xgtpsa"
 )
 
 install(TARGETS madng_tpsa
   LIBRARY DESTINATION xgtpsa/lib
   RUNTIME DESTINATION xgtpsa/lib
 )
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/xgtpsa/include/madng_tpsa.h"
+install(FILES
+  ${MADNG_PUBLIC_HEADER_PATHS}
   DESTINATION xgtpsa/include
 )

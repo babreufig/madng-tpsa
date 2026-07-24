@@ -1,7 +1,7 @@
 """Where the built GTPSA core lives.
 
-The CMake build installs its artifacts into ``xgtpsa`` (``lib/madng_tpsa.*`` +
-``include/madng_tpsa.h``), so editable installs and wheels have the same package shape.
+The CMake build installs its artifacts into ``xgtpsa`` (``lib/libmadng_tpsa.*`` +
+``include/mad_tpsa.hpp``), so editable installs and wheels have the same package shape.
 The paths are the contract consumers compile against: ``xtrack.tpsa`` builds its bridge with
 ``-I include_dir()`` and links ``core_library()``.
 
@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import os
 import sysconfig
-import warnings
 
 CORE_BASENAME = "madng_tpsa"
 _PKG = os.path.dirname(os.path.abspath(__file__))
@@ -24,23 +23,17 @@ def _library_names() -> list[str]:
     suffix = sysconfig.get_config_var("SHLIB_SUFFIX")
     candidates = []
     if suffix:
-        candidates.append(f"{CORE_BASENAME}{suffix}")
-    candidates.extend([f"{CORE_BASENAME}.so", f"{CORE_BASENAME}.dylib"])
+        candidates.append(f"lib{CORE_BASENAME}{suffix}")
+    candidates.extend([
+        f"lib{CORE_BASENAME}.so",
+        f"lib{CORE_BASENAME}.dylib",
+    ])
     return list(dict.fromkeys(candidates))
 
 
 def _base() -> str | None:
     """The directory an env override points at (a file's dirname is fine), or None."""
     p = os.environ.get("XGTPSA_LIB")
-    if not p:
-        p = os.environ.get("XTRACK_GTPSA_LIB")
-        if p:
-            warnings.warn(
-                "XTRACK_GTPSA_LIB is deprecated; set XGTPSA_LIB (or rely on "
-                "the packaged xgtpsa/lib) instead",
-                DeprecationWarning,
-                stacklevel=3,
-            )
     if not p:
         return None
     return p if os.path.isdir(p) else os.path.dirname(os.path.abspath(p))
@@ -57,7 +50,7 @@ def _pick(candidates: list[str], markers: list[str], what: str) -> str:
 
 
 def core_library() -> str:
-    """Absolute path to ``madng_tpsa.so`` or ``madng_tpsa.dylib``."""
+    """Absolute path to ``libmadng_tpsa.so`` or ``libmadng_tpsa.dylib``."""
     b = _base()
     if b:
         cands = [
@@ -73,7 +66,7 @@ def core_library() -> str:
 
 
 def include_dir() -> str:
-    """Directory holding the public xgtpsa header (``madng_tpsa.h``)."""
+    """Directory holding the public MAD-NG GTPSA headers."""
     b = _base()
     if b:
         cands = [
@@ -84,7 +77,7 @@ def include_dir() -> str:
         ]
     else:
         cands = [_INCLUDE]
-    return os.path.dirname(_pick(cands, ["madng_tpsa.h"], "madng_tpsa.h"))
+    return os.path.dirname(_pick(cands, ["mad_tpsa.hpp"], "mad_tpsa.hpp"))
 
 
 def have_core() -> bool:

@@ -23,5 +23,4 @@ include = [
   "madng/src/sse/**",
   "madng/src/libgtpsa/mad_*.c",
   "madng/src/libgtpsa/*.h",
-  "src/xgtpsa/include/madng_tpsa.h",
 ]

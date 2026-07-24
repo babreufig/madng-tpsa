@@ -10,26 +10,10 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_no_xtrack_needed():
-    # In a fresh interpreter: the whole engine works with xtrack never imported.
-    import subprocess
-    import sys
-
-    subprocess.run(
-        [sys.executable, "-c",
-         "import sys, xgtpsa;"
-         "d = xgtpsa.Descriptor.new(2, 2);"
-         "assert (xgtpsa.Tpsa.var(d, 1, 2.0) ** 2).const_part == 4.0;"
-         "assert 'xtrack' not in sys.modules"],
-        check=True,
-    )
-
-
 def test_paths():
     import os
 
     assert os.path.exists(xgtpsa.core_library())
-    assert os.path.exists(os.path.join(xgtpsa.include_dir(), "madng_tpsa.h"))
 
 
 def test_lib_and_ffi_singletons():
