@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.18)
 project(xgtpsa LANGUAGES C)
 
+# This build follows the MAD-NG platform makefiles where appropriate, but keeps
+# the flags suitable for Python wheels. In particular, use C11, -O3,
+# -ftree-vectorize, and -fno-math-errno as upstream does for C sources. Avoid
+# -march=native, -mtune=native, -mfma, and LTO because wheels must not assume the
+# build machine's CPU features. OpenMP is also left off for now; MAD-NG has
+# serial fallbacks when _OPENMP is not defined.
+
 if(NOT CMAKE_SYSTEM_NAME MATCHES "Linux|Darwin")
   message(FATAL_ERROR "xgtpsa only supports Linux and macOS")
 endif()
@@ -65,7 +72,7 @@ add_library(madng_tpsa SHARED ${MADNG_TPSA_SOURCES})
 set_target_properties(madng_tpsa PROPERTIES
   PREFIX ""
   OUTPUT_NAME "madng_tpsa"
-  C_STANDARD 99
+  C_STANDARD 11
   C_STANDARD_REQUIRED ON
   C_EXTENSIONS OFF
   POSITION_INDEPENDENT_CODE ON
@@ -82,8 +89,8 @@ target_compile_options(madng_tpsa PRIVATE
   -Wall
   -Wextra
   -O3
-  -ffast-math
   -ftree-vectorize
+  -fno-math-errno
   -Wno-misleading-indentation
   -Wno-empty-body
 )
