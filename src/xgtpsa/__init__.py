@@ -14,7 +14,7 @@ algebraic operations. The coefficients are the derivatives.
 
 from ._cffi import CDEF, ffi, lib
 from .descriptor import Descriptor, live_descriptors
-from .paths import core_library, have_core, include_dir
+from .paths import core_library, include_dir
 from .tpsa import Tpsa
 
 __version__ = "0.1.0"
@@ -25,7 +25,6 @@ __all__ = [
     "Tpsa",
     "core_library",
     "ffi",
-    "have_core",
     "include_dir",
     "lib",
     "live_descriptors",

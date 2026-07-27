@@ -1,41 +1,30 @@
-"""Where the built GTPSA core lives.
+"""Convenience functions for obtaining Xgtpsa library and headers.
 
-The CMake build installs its artifacts into ``xgtpsa`` (``lib/libmadng_tpsa.*`` +
-``include/mad_tpsa.hpp``), so editable installs and wheels have the same package shape.
-The paths are the contract consumers compile against: ``xtrack.tpsa`` builds its
-bridge with ``-I include_dir()`` and links ``core_library()``.
-
-``XGTPSA_LIB`` (a file or a directory) overrides the packaged location.
+The build script of the package puts the shared library in ``src/xgtpsa/lib`` and copies the
+MAD-NG GTPSA public API headers in ``src/xgtpsa/include``.
 """
 
 from __future__ import annotations
 
 import os
-import sysconfig
+import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-CORE_BASENAME = "madng_tpsa"
+LIB_BASENAME = "madng_tpsa"
 _PKG = Path(__file__).resolve().parent
 _LIB = _PKG / "lib"
 _INCLUDE = _PKG / "include"
 
 
-def _library_names() -> list[str]:
-    suffix = sysconfig.get_config_var("SHLIB_SUFFIX")
-    candidates = []
-    if suffix:
-        candidates.append(f"lib{CORE_BASENAME}{suffix}")
-    candidates.extend(
-        [
-            f"lib{CORE_BASENAME}.so",
-            f"lib{CORE_BASENAME}.dylib",
-        ]
-    )
-    return list(dict.fromkeys(candidates))
+def _library_name() -> str:
+    """Return the canonical name of the shared object file for the current platform."""
+    match sys.platform:
+        case "darwin":
+            return f"lib{LIB_BASENAME}.dylib"
+        case "linux":
+            return f"lib{LIB_BASENAME}.so"
+
+    raise RuntimeError(f"Platform {sys.platform} not supported for Xgtpsa")
 
 
 def _base() -> str | None:
@@ -47,52 +36,31 @@ def _base() -> str | None:
     return str(path if path.is_dir() else path.resolve().parent)
 
 
-def _pick(candidates: Sequence[Path | str], markers: Sequence[str], what: str) -> str:
-    for d in candidates:
-        for marker in markers:
-            path = Path(d) / marker
-            if path.exists():
-                return str(path)
-    raise RuntimeError(f"{what} not found (looked in {candidates}); build it with pip install -e .")
-
-
 def core_library() -> str:
-    """Absolute path to ``libmadng_tpsa.so`` or ``libmadng_tpsa.dylib``."""
-    b = _base()
-    if b:
-        base = Path(b)
-        cands = [
-            base,
-            base / "lib",
-            base / "xgtpsa" / "lib",
-            base / "src" / "xgtpsa" / "lib",
-            base / "build",
-        ]
-    else:
-        cands = [_LIB]
-    return _pick(cands, _library_names(), CORE_BASENAME)
+    """Absolute path to the ``madng_tpsa`` shared library."""
+    path_to_so = Path(lib_dir()) / _library_name()
+    return str(path_to_so)
+
+
+def lib_dir() -> str:
+    """Absolute path to the directory containing the ``madng_tpsa`` shared library."""
+    path_to_so = _LIB / _library_name()
+
+    if not path_to_so.exists():
+        raise RuntimeError(
+            f"GTPSA library {path_to_so} does not exist. Was the package built correctly?"
+        )
+
+    return str(_LIB)
 
 
 def include_dir() -> str:
     """Directory holding the public MAD-NG GTPSA headers."""
-    b = _base()
-    if b:
-        base = Path(b)
-        cands = [
-            base / "include",
-            base / "xgtpsa" / "include",
-            base / "src" / "xgtpsa" / "include",
-            base,
-        ]
-    else:
-        cands = [_INCLUDE]
-    return str(Path(_pick(cands, ["mad_tpsa.hpp"], "mad_tpsa.hpp")).parent)
+    test_file = "mad_tpsa.hpp"
 
+    if not (_INCLUDE / test_file).exists():
+        raise RuntimeError(
+            f"GTPSA include headers not found in {_INCLUDE}. Was the package built correctly?"
+        )
 
-def have_core() -> bool:
-    """Whether the core is built (for skipping tests)."""
-    try:
-        core_library()
-        return True
-    except RuntimeError:
-        return False
+    return str(_INCLUDE)

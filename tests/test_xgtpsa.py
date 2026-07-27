@@ -7,11 +7,6 @@ import pytest
 
 import xgtpsa
 
-pytestmark = pytest.mark.skipif(
-    not xgtpsa.have_core(),
-    reason="madng_tpsa shared library unavailable; build package",
-)
-
 
 def test_paths():
     assert Path(xgtpsa.core_library()).exists()
