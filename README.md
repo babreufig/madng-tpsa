@@ -45,6 +45,27 @@ pip install . --config-settings=cmake.define.MADNG_SRC=/path/to/madng/src
 
 Requirements: a C compiler, CMake, BLAS/LAPACK on Linux, and Accelerate on macOS.
 
+## Development
+
+Install the package together with the development tools:
+
+```bash
+python -m pip install --group dev -e .
+```
+
+Enable the pre-commit hooks:
+
+```bash
+pre-commit install
+```
+
+The hooks run Ruff formatting/linting and Ty type checking. To run the same checks
+manually:
+
+```bash
+pre-commit run --all-files
+```
+
 ## Tests
 
 ```bash
@@ -52,11 +73,5 @@ pytest tests/
 ```
 
 The tests exercise the standalone engine bindings; xtrack is not imported.
-
-## Licensing
-
-MAD-NG's GTPSA sources are GPLv3 or later. This package builds and ships a shared
-library derived from those sources, so distribution needs to follow GPL-compatible
-terms. See `LICENSE`.
 
 [madng]: https://github.com/MethodicalAcceleratorDesign/MAD

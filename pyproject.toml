@@ -9,6 +9,14 @@ description = "Python bindings to the GTPSA (truncated power series) engine of M
 requires-python = ">=3.11"
 dependencies = ["cffi", "numpy"]
 
+[dependency-groups]
+dev = [
+    "pre-commit",
+    "pytest",
+    "ruff==0.15.17",
+    "ty==0.0.63",
+]
+
 [tool.scikit-build]
 wheel.packages = ["src/xgtpsa"]
 cmake.version = ">=3.18"
