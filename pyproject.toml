@@ -58,6 +58,7 @@ extend-select = [
     "F",  # Pyflakes rules
     "W",  # PyCodeStyle warnings
     "E",  # PyCodeStyle errors
+    "D",  # pydocstyle rules
     "I",  # Sort imports properly
     "A",  # Detect shadowed builtins
     "N",  # enforce naming conventions, e.g. ClassName vs function_name
@@ -74,8 +75,15 @@ extend-select = [
     "PTH",  # Use pathlib instead of os.path
     "NPY",  # Some numpy-specific things
 ]
+ignore = [
+    "D105",  # Missing docstring in magic method
+]
+pydocstyle.convention = "google"
 fixable = ["ALL"]
 unfixable = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_*.py" = ["D"]
 
 [tool.ty.src]
 include = ["src", "tests"]

@@ -22,6 +22,7 @@ class Tpsa:
     __slots__ = ("_p",)  # pointer to the C tpsa_t* (the series itself)
 
     def __init__(self, desc: Descriptor | None = None, ptr: Any = None) -> None:
+        """Create a new ``Tpsa``."""
         if ptr is not None:
             self._p = ptr
         else:
@@ -38,16 +39,20 @@ class Tpsa:
 
     @classmethod
     def var(cls, desc: Descriptor, iv: int, v: float = 0.0) -> Tpsa:
-        """Create identity variable ``iv`` (index starting from 1) on ``desc``,
-        expanded around value ``v``."""
+        """Create identity variable ``iv`` on ``desc``.
+
+        The variable index starts from 1 and is expanded around value ``v``.
+        """
         t = cls(desc)
         lib().mad_tpsa_setvar(t._p, float(v), int(iv), 0.0)
         return t
 
     @classmethod
     def param(cls, desc: Descriptor, ip: int, v: float = 0.0) -> Tpsa:
-        """Create identity parameter ``ip`` (index starting from 1, monomial slot
-        ``n_variables + ip - 1``) on ``desc``, expanded around value ``v``.
+        """Create identity parameter ``ip`` on ``desc``.
+
+        The parameter index starts from 1 and uses monomial slot
+        ``n_variables + ip - 1``. It is expanded around value ``v``.
 
         The handle is created with ``mo=1`` (setprm requires it); parameters are
         exact order-1 seeds, use them in arithmetic to build higher orders.
@@ -204,6 +209,7 @@ class Tpsa:
         return self.__mul__(-1.0)
 
     def copy(self) -> Tpsa:
+        """Return a copy of this series."""
         r = self._new_like()
         lib().mad_tpsa_copy(self._p, r._p)
         return r

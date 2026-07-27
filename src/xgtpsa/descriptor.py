@@ -27,6 +27,7 @@ class Descriptor:
     __slots__ = ("_d",)  # pointer to the C descriptor (mad_desc_t*)
 
     def __init__(self, ptr: Any) -> None:
+        """Initialize ``Descriptor`` with ``ptr``."""
         self._d = ptr
 
     @classmethod
@@ -62,6 +63,7 @@ class Descriptor:
 
     @property
     def ptr(self) -> Any:
+        """Descriptor pointer."""
         return self._d
 
     def _getnv(self) -> tuple[int, int, int, int]:
