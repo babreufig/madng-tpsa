@@ -25,6 +25,9 @@ class Tpsa:
         if ptr is not None:
             self._p = ptr
         else:
+            if desc is None:
+                msg = "desc is required when ptr is not provided"
+                raise TypeError(msg)
             self._p = lib().mad_tpsa_newd(desc.ptr, _DFLT)
 
     def __del__(self) -> None:

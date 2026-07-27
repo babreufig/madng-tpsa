@@ -52,3 +52,7 @@ extend-select = [
 ]
 fixable = ["ALL"]
 unfixable = []
+
+[tool.ty.src]
+include = ["src", "tests"]
+exclude = ["madng"]

@@ -13,6 +13,10 @@ from __future__ import annotations
 import os
 import sysconfig
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 CORE_BASENAME = "madng_tpsa"
 _PKG = Path(__file__).resolve().parent
@@ -43,7 +47,7 @@ def _base() -> str | None:
     return str(path if path.is_dir() else path.resolve().parent)
 
 
-def _pick(candidates: list[Path | str], markers: list[str], what: str) -> str:
+def _pick(candidates: Sequence[Path | str], markers: Sequence[str], what: str) -> str:
     for d in candidates:
         for marker in markers:
             path = Path(d) / marker
