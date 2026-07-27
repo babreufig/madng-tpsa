@@ -3,14 +3,18 @@
 There is no Python-side cache of the descriptor state.
 A descriptor is created explicitly (``Descriptor.new``)
 and can be queried straight from a series (``t.descriptor``).
-Properties such as number of variables, order, and parameters are always read from C to avoid inconsistencies.
+Properties such as number of variables, order, and parameters are always read
+from C to avoid inconsistencies.
 Every descriptor created is kept as a pointer in ``_DESCRIPTORS`` (MAD-NG reuses
 equivalent descriptors, so this is the live set), see ``live_descriptors()``.
 """
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 from ._cffi import ffi, lib
 
@@ -23,6 +27,7 @@ class Descriptor:
     __slots__ = ("_d",)  # pointer to the C descriptor (mad_desc_t*)
 
     def __init__(self, ptr: Any) -> None:
+        """Initialize ``Descriptor`` with ``ptr``."""
         self._d = ptr
 
     @classmethod
@@ -33,7 +38,7 @@ class Descriptor:
         num_parameters: int = 0,
         param_order: int = 1,
     ) -> Descriptor:
-        """Create (or reuse) a GTPSA descriptor with ``num_variables`` variables and max ``order``.
+        """Create or reuse a descriptor with ``num_variables`` and max ``order``.
 
         With ``num_parameters > 0``, adds parameters: extra variables appended
         positions ``num_variables..num_variables+num_parameters-1`` whose combined order
@@ -43,13 +48,12 @@ class Descriptor:
         Warns if GTPSA library coerces ``order``/``param_order`` (minimum is 1).
         """
         if num_parameters > 0:
-            d = _wrap_desc(
-                lib().mad_desc_newvp(num_variables, order, num_parameters, param_order)
-            )
+            d = _wrap_desc(lib().mad_desc_newvp(num_variables, order, num_parameters, param_order))
         else:
             d = _wrap_desc(lib().mad_desc_newv(num_variables, order))
         if d.order != order or (num_parameters > 0 and d.param_order != param_order):
             import warnings
+
             warnings.warn(
                 f"Requested order {order}/param_order {param_order} coerced to "
                 f"{d.order}/{d.param_order} (GTPSA minimum)",
@@ -59,6 +63,7 @@ class Descriptor:
 
     @property
     def ptr(self) -> Any:
+        """Descriptor pointer."""
         return self._d
 
     def _getnv(self) -> tuple[int, int, int, int]:
@@ -123,5 +128,5 @@ def _wrap_desc(ptr: Any) -> Descriptor:
 
 
 def live_descriptors() -> list[Descriptor]:
-    """Every ``Descriptor`` created so far (MAD-NG reuses equivalent descriptors, so this is the live set)."""
+    """Every ``Descriptor`` created so far."""
     return list(_DESCRIPTORS.values())

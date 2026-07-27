@@ -1,18 +1,90 @@
 [build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
+build-backend = "scikit_build_core.build"
+requires = [
+    "scikit-build-core>=0.10",
+    "cffi",
+    "numpy",
+]
 
 [project]
 name = "xgtpsa"
+authors = [
+    {name = "Bernardo Abreu Figueiredo", email = "bernardo.abreu.figueiredo@cern.ch"},
+    {name = "Szymon Łopaciuk", email = "szymon.lopaciuk@cern.ch"},
+]
 version = "0.1.0"
 description = "Python bindings to the GTPSA (truncated power series) engine of MAD-NG"
-requires-python = ">=3.9"
-dependencies = ["cffi", "numpy"]
+license = "GPL-3.0-only"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "cffi",
+    "numpy",
+]
 
-[tool.setuptools]
-packages = ["xgtpsa"]
+[dependency-groups]
+dev = [
+    "pre-commit",
+    "pytest",
+    "ruff==0.15.17",
+    "ty==0.0.63",
+]
 
-# _core/ is produced by build.sh, not by pip: install with `pip install -e .` (or put the
-# repo on PYTHONPATH) and run ./build.sh once.
-[tool.setuptools.package-data]
-xgtpsa = ["_core/lib/*.so", "_core/include/*"]
+[tool.scikit-build]
+wheel.packages = ["src/xgtpsa"]
+cmake.version = ">=3.18"
+build-dir = "build/{wheel_tag}"
+
+[tool.scikit-build.sdist]
+include = [
+    "CMakeLists.txt",
+    "madng/src/mad_*.c",
+    "madng/src/mad_*.h",
+    "madng/src/mad_*.hpp",
+    "madng/src/sse/**",
+    "madng/src/libgtpsa/mad_*.c",
+    "madng/src/libgtpsa/*.h",
+]
+
+[project.entry-points.xobjects]
+build_info = "xgtpsa.xobjects_hook:get_build_info"
+
+[tool.ruff]
+exclude = ["madng"]
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = [
+    "F",  # Pyflakes rules
+    "W",  # PyCodeStyle warnings
+    "E",  # PyCodeStyle errors
+    "D",  # pydocstyle rules
+    "I",  # Sort imports properly
+    "A",  # Detect shadowed builtins
+    "N",  # enforce naming conventions, e.g. ClassName vs function_name
+    "UP",  # Warn if certain things can change due to newer Python versions
+    "C4",  # Catch incorrect use of comprehensions, dict, list, etc
+    "FA",  # Enforce from __future__ import annotations
+    "FBT",  # detect boolean traps
+    "BLE",  # disallow catch-all exceptions
+    "ICN",  # Use common import conventions
+    "RET",  # Good return practices
+    "SIM",  # Common simplification rules
+    "TID",  # Some good import practices
+    "TC",  # Enforce importing certain types in a TYPE_CHECKING block
+    "PTH",  # Use pathlib instead of os.path
+    "NPY",  # Some numpy-specific things
+]
+ignore = [
+    "D105",  # Missing docstring in magic method
+]
+pydocstyle.convention = "google"
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_*.py" = ["D"]
+
+[tool.ty.src]
+include = ["src", "tests"]
+exclude = ["madng"]

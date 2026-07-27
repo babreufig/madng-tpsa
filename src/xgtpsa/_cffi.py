@@ -1,0 +1,60 @@
+"""CFFI ABI bindings for the packaged ``libmadng_tpsa`` shared library.
+
+The declarations below are the small MAD-NG GTPSA subset used by the Python
+wrapper. TPSA and descriptor objects stay opaque at this layer. MAD-NG uses
+1-based variable and parameter indices.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import cffi
+
+from .paths import core_library
+
+CDEF = """
+    void* mad_desc_newv(int nv, unsigned char mo);
+    void* mad_desc_newvp(int nv, unsigned char mo, int np, unsigned char po);
+    int mad_desc_getnv(const void* d, unsigned char* mo_, int* np_, unsigned char* po_);
+    _Bool mad_desc_isvalidm(const void* d, int n, const unsigned char* m);
+
+    void* mad_tpsa_newd(void* desc, unsigned char mo);
+    const void* mad_tpsa_desc(const void* t);
+    unsigned char mad_tpsa_ord(const void* t, _Bool hi);
+    void mad_tpsa_del(void* t);
+    void mad_tpsa_setvar(void* t, double v, int iv, double scl);
+    void mad_tpsa_setprm(void* t, double v, int ip);
+    void mad_tpsa_setval(void* t, double v);
+    double mad_tpsa_geti(void* t, int i);
+    double mad_tpsa_getm(void* t, int n, const unsigned char* m);
+    void mad_tpsa_seti(void* t, int i, double a, double b);
+    void mad_tpsa_setm(void* t, int n, const unsigned char* m, double a, double b);
+    int mad_tpsa_cycle(void* t, int i, int n, unsigned char* m, double* v);
+    void mad_tpsa_copy(const void* t, void* r);
+    void mad_tpsa_add(const void* a, const void* b, void* c);
+    void mad_tpsa_sub(const void* a, const void* b, void* c);
+    void mad_tpsa_mul(const void* a, const void* b, void* c);
+    void mad_tpsa_div(const void* a, const void* b, void* c);
+    void mad_tpsa_pown(const void* a, double v, void* c);
+    void mad_tpsa_scl(const void* a, double v, void* c);
+    void mad_tpsa_inv(const void* a, double v, void* c);
+    void mad_tpsa_axpb(double a, const void* x, double b, void* r);
+"""
+
+_ffi = cffi.FFI()
+_ffi.cdef(CDEF)
+_lib: Any = None
+
+
+def lib() -> Any:
+    """Return the lazily loaded ``libmadng_tpsa`` handle."""
+    global _lib
+    if _lib is None:
+        _lib = _ffi.dlopen(core_library())
+    return _lib
+
+
+def ffi() -> cffi.FFI:
+    """Return the shared CFFI parser/context."""
+    return _ffi
