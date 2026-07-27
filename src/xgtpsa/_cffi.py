@@ -14,6 +14,9 @@ import cffi
 from .paths import core_library
 
 CDEF = """
+    extern unsigned char mad_tpsa_dflt;
+    extern unsigned char mad_tpsa_same;
+
     void* mad_desc_newv(int nv, unsigned char mo);
     void* mad_desc_newvp(int nv, unsigned char mo, int np, unsigned char po);
     int mad_desc_getnv(const void* d, unsigned char* mo_, int* np_, unsigned char* po_);

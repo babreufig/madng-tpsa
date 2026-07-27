@@ -29,7 +29,8 @@ class Tpsa:
             if desc is None:
                 msg = "desc is required when ptr is not provided"
                 raise TypeError(msg)
-            self._p = lib().mad_tpsa_newd(desc.ptr, _DFLT)
+
+            self._p = lib().mad_tpsa_newd(desc.ptr, lib().mad_tpsa_dflt)
 
     def __del__(self) -> None:
         # Read the loaded handle directly: shutdown must not reload the library.
