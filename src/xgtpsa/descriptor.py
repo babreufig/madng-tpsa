@@ -1,132 +1,142 @@
-"""The GTPSA descriptor: the (variables, order, parameters) space a series lives in.
+"""GTPSA descriptor objects.
 
-There is no Python-side cache of the descriptor state.
-A descriptor is created explicitly (``Descriptor.new``)
-and can be queried straight from a series (``t.descriptor``).
-Properties such as number of variables, order, and parameters are always read
-from C to avoid inconsistencies.
-Every descriptor created is kept as a pointer in ``_DESCRIPTORS`` (MAD-NG reuses
-equivalent descriptors, so this is the live set), see ``live_descriptors()``.
+A descriptor defines the algebraic space for TPSA series: how many variables are
+available, the maximum polynomial order, and optionally how many parameters are
+part of the monomials. Every ``Tpsa`` object is created on a descriptor, and
+series can only be combined meaningfully when they belong to compatible
+descriptors.
+
+The Python object is a small handle to the underlying MAD-NG GTPSA descriptor.
+MAD-NG interns equivalent descriptors, and this module mirrors that by reusing the
+same Python ``Descriptor`` object for the same C descriptor pointer.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple
+
+from ._cffi import ffi, lib
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-from ._cffi import ffi, lib
 
-_DESCRIPTORS: dict[int, Descriptor] = {}  # int(address) -> Descriptor
+class _DescriptorAttrs(NamedTuple):
+    num_vars: int
+    order: int
+    num_params: int
+    param_order: int
 
 
 class Descriptor:
-    """Thin handle on a live GTPSA descriptor; ``n_variables``/``order`` come from C."""
+    """Algebraic space definition for one or more ``Tpsa`` series.
 
-    __slots__ = ("_d",)  # pointer to the C descriptor (mad_desc_t*)
+    Parameters are appended after the variables in monomial tuples. For example,
+    a descriptor with two variables and one parameter uses monomials of length
+    three, where the last entry is the parameter order.
+    """
 
-    def __init__(self, ptr: Any) -> None:
-        """Initialize ``Descriptor`` with ``ptr``."""
-        self._d = ptr
+    _instances_by_ptr: ClassVar[dict[int, Descriptor]] = {}
+    _ptr: Any
 
-    @classmethod
-    def new(
+    __slots__ = ("_ptr",)  # pointer to the C descriptor (mad_desc_t*)
+
+    def __new__(
         cls,
-        num_variables: int,
+        num_vars: int,
         order: int,
-        num_parameters: int = 0,
+        num_params: int = 0,
         param_order: int = 1,
     ) -> Descriptor:
-        """Create or reuse a descriptor with ``num_variables`` and max ``order``.
+        """Create or reuse a descriptor."""
+        if order <= 0:
+            raise ValueError("Descriptor order must be positive")
+        if num_params > 0 and param_order <= 0:
+            raise ValueError("Descriptor parameter order must be positive")
 
-        With ``num_parameters > 0``, adds parameters: extra variables appended
-        positions ``num_variables..num_variables+num_parameters-1`` whose combined order
-        is capped at ``param_order``.
-        GTPSA reuses equivalent descriptors, so this returns the same ``Descriptor``
-        object for the same arguments.
-        Warns if GTPSA library coerces ``order``/``param_order`` (minimum is 1).
-        """
-        if num_parameters > 0:
-            d = _wrap_desc(lib().mad_desc_newvp(num_variables, order, num_parameters, param_order))
+        if num_params > 0:
+            ptr = lib().mad_desc_newvp(num_vars, order, num_params, param_order)
         else:
-            d = _wrap_desc(lib().mad_desc_newv(num_variables, order))
-        if d.order != order or (num_parameters > 0 and d.param_order != param_order):
-            import warnings
+            ptr = lib().mad_desc_newv(num_vars, order)
 
-            warnings.warn(
-                f"Requested order {order}/param_order {param_order} coerced to "
-                f"{d.order}/{d.param_order} (GTPSA minimum)",
-                stacklevel=2,
-            )
-        return d
+        return cls.from_ptr(ptr)
+
+    @classmethod
+    def from_ptr(cls, ptr: Any) -> Descriptor:
+        """Return the interned ``Descriptor`` for a raw C pointer."""
+        key = int(ffi().cast("uintptr_t", ptr))
+        descriptor = cls._instances_by_ptr.get(key)
+        if descriptor is None:
+            descriptor = super().__new__(cls)
+            descriptor._ptr = ptr
+            cls._instances_by_ptr[key] = descriptor
+        return descriptor
 
     @property
     def ptr(self) -> Any:
         """Descriptor pointer."""
-        return self._d
+        return self._ptr
 
-    def _getnv(self) -> tuple[int, int, int, int]:
-        mo = ffi().new("unsigned char*")
-        np_ = ffi().new("int*")
-        po = ffi().new("unsigned char*")
-        n = lib().mad_desc_getnv(self._d, mo, np_, po)
-        return n, mo[0], np_[0], po[0]
+    def _get_descriptor_attrs(self) -> _DescriptorAttrs:
+        """Query the attributes of the GTPSA descriptor."""
+        order_ptr = ffi().new("unsigned char*")
+        num_params_ptr = ffi().new("int*")
+        param_order_ptr = ffi().new("unsigned char*")
+
+        num_vars = lib().mad_desc_getnv(self._ptr, order_ptr, num_params_ptr, param_order_ptr)
+
+        return _DescriptorAttrs(
+            num_vars=num_vars,
+            order=order_ptr[0],
+            num_params=num_params_ptr[0],
+            param_order=param_order_ptr[0],
+        )
 
     @property
-    def n_variables(self) -> int:
-        """Number of variables (queried from C, GTPSA's ``nv``; excludes parameters)."""
-        return self._getnv()[0]
+    def num_vars(self) -> int:
+        """Number of variables (excluding parameters) supported by the descriptor."""
+        return self._get_descriptor_attrs().num_vars
 
     @property
     def order(self) -> int:
-        """Maximum order (queried from C, GTPSA's ``mo``)."""
-        return self._getnv()[1]
+        """Maximum order supported by the descriptor."""
+        return self._get_descriptor_attrs().order
 
     @property
-    def n_parameters(self) -> int:
-        """Number of parameters (queried from C, GTPSA's ``np``)."""
-        return self._getnv()[2]
+    def num_params(self) -> int:
+        """Number of parameters supported by the descriptor."""
+        return self._get_descriptor_attrs().num_params
 
     @property
     def param_order(self) -> int:
-        """Combined parameter order cap (queried from C, GTPSA's ``po``)."""
-        return self._getnv()[3]
+        """Combined parameter order cap of the descriptor."""
+        return self._get_descriptor_attrs().param_order
 
     @property
     def monomial_length(self) -> int:
-        """Length of a full monomial: ``n_variables + n_parameters``."""
-        n, _, np_, _ = self._getnv()
-        return n + np_
+        """Length of a full monomial: ``num_vars + num_params``."""
+        attrs = self._get_descriptor_attrs()
+        return attrs.num_vars + attrs.num_params
 
     def is_valid_monomial(self, monomial: Iterable[int]) -> bool:
         """Whether ``monomial`` is representable (querying beyond-order aborts C)."""
         m = [int(x) for x in monomial]
         arr = ffi().new("unsigned char[]", m)
-        return bool(lib().mad_desc_isvalidm(self._d, len(m), arr))
+        return bool(lib().mad_desc_isvalidm(self._ptr, len(m), arr))
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, Descriptor) and self._d == other._d
+        return isinstance(other, Descriptor) and self._ptr == other._ptr
 
     def __hash__(self) -> int:
-        return int(ffi().cast("uintptr_t", self._d))
+        return int(ffi().cast("uintptr_t", self._ptr))
 
     def __repr__(self) -> str:
-        nv, order, np_, po = self._getnv()
-        if np_:
-            return f"Descriptor(nv={nv}, order={order}, np={np_}, po={po})"
-        return f"Descriptor(nv={nv}, order={order})"
+        attrs = self._get_descriptor_attrs()
 
+        if attrs.num_params:
+            return (
+                f"Descriptor(num_vars={attrs.num_vars}, order={attrs.order}, "
+                f"num_params={attrs.num_params}, param_order={attrs.param_order})"
+            )
 
-def _wrap_desc(ptr: Any) -> Descriptor:
-    """Return the ``Descriptor`` for a raw C pointer, registering it."""
-    key = int(ffi().cast("uintptr_t", ptr))
-    d = _DESCRIPTORS.get(key)
-    if d is None:
-        d = _DESCRIPTORS[key] = Descriptor(ptr)
-    return d
-
-
-def live_descriptors() -> list[Descriptor]:
-    """Every ``Descriptor`` created so far."""
-    return list(_DESCRIPTORS.values())
+        return f"Descriptor(num_vars={attrs.num_vars}, order={attrs.order})"

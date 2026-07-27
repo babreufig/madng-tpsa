@@ -8,7 +8,7 @@ so importing `xgtpsa` does not compile anything at runtime.
 ```python
 import xgtpsa
 
-d = xgtpsa.Descriptor.new(2, 3)
+d = xgtpsa.Descriptor(2, 3)
 x = xgtpsa.Tpsa.var(d, 1, 0.5)
 y = xgtpsa.Tpsa.var(d, 2)
 f = x * x + 2.0 * y

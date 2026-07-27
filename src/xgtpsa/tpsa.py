@@ -8,7 +8,7 @@ import numpy as np
 
 from . import _cffi
 from ._cffi import ffi, lib
-from .descriptor import Descriptor, _wrap_desc
+from .descriptor import Descriptor
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -52,7 +52,7 @@ class Tpsa:
         """Create identity parameter ``ip`` on ``desc``.
 
         The parameter index starts from 1 and uses monomial slot
-        ``n_variables + ip - 1``. It is expanded around value ``v``.
+        ``num_vars + ip - 1``. It is expanded around value ``v``.
 
         The handle is created with ``mo=1`` (setprm requires it); parameters are
         exact order-1 seeds, use them in arithmetic to build higher orders.
@@ -70,7 +70,7 @@ class Tpsa:
     @property
     def descriptor(self) -> Descriptor:
         """The ``Descriptor`` this series lives on (queried from C)."""
-        return _wrap_desc(lib().mad_tpsa_desc(self._p))
+        return Descriptor.from_ptr(lib().mad_tpsa_desc(self._p))
 
     @property
     def order(self) -> int:
@@ -120,7 +120,7 @@ class Tpsa:
         """All coefficients with ``|c| > tol`` as ``{monomial_tuple: coefficient}``.
 
         Enumerates only the stored (nonzero) terms via ``mad_tpsa_cycle``.
-        Monomials are full length ``n_variables + n_parameters``.
+        Monomials are full length ``num_vars + num_params``.
         """
         n = self.descriptor.monomial_length
         m = ffi().new("unsigned char[]", n)
@@ -134,7 +134,7 @@ class Tpsa:
 
     def grad(self) -> list[float]:
         """Order-1 coefficients, one per variable."""
-        n = self.descriptor.n_variables
+        n = self.descriptor.num_vars
         g = []
         for j in range(n):
             mono = [0] * n
@@ -144,11 +144,11 @@ class Tpsa:
 
     def param_grad(self) -> list[float]:
         """Order-1 coefficients (d out / d param_j), one per parameter."""
-        nv, _, np_, _ = self.descriptor._getnv()
+        attrs = self.descriptor._get_descriptor_attrs()
         g = []
-        for j in range(np_):
-            mono = [0] * (nv + np_)
-            mono[nv + j] = 1
+        for j in range(attrs.num_params):
+            mono = [0] * (attrs.num_vars + attrs.num_params)
+            mono[attrs.num_vars + j] = 1
             g.append(self.get(mono))
         return g
 

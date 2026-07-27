@@ -5,7 +5,7 @@ order, plus optional parameters), seed identity series on it and perform
 algebraic operations. The coefficients are the derivatives.
 
     import xgtpsa
-    d = xgtpsa.Descriptor.new(2, 3)          # 2 variables, order 3
+    d = xgtpsa.Descriptor(2, 3)          # 2 variables, order 3
     x = xgtpsa.Tpsa.var(d, 1, 0.5)           # x, expanded around 0.5
     y = xgtpsa.Tpsa.var(d, 2)
     f = x * x + 2.0 * y
@@ -13,7 +13,7 @@ algebraic operations. The coefficients are the derivatives.
 """
 
 from ._cffi import CDEF, ffi, lib
-from .descriptor import Descriptor, live_descriptors
+from .descriptor import Descriptor
 from .paths import core_library, include_dir
 from .tpsa import Tpsa
 
@@ -27,6 +27,5 @@ __all__ = [
     "ffi",
     "include_dir",
     "lib",
-    "live_descriptors",
     "__version__",
 ]
