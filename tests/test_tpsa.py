@@ -216,6 +216,33 @@ def test_monomial_coeffs_skips_zeros_and_tiny_terms():
     assert (1, 0) in t.monomial_coeffs(tol=1e-30)
 
 
+def test_to_dict_uses_monomial_coeffs():
+    d = xgtpsa.Descriptor(2, 2)
+    t = d.zero()
+    t.set((1, 0), 1e-20)
+    t.set((0, 1), 1.0)
+
+    assert t.to_dict() == {(0, 1): 1.0}
+    assert t.to_dict(tol=1e-30) == t.monomial_coeffs(tol=1e-30)
+
+
+def test_from_dict_replaces_coefficients_and_round_trips():
+    d = xgtpsa.Descriptor(2, 2)
+    original = d.zero()
+    original.set_const_part(1.5)
+    original.set((1, 0), 2.0)
+    original.set((0, 2), -3.0)
+
+    restored = d.var(1, 10.0)
+    restored.from_dict(original.to_dict())
+    assert restored == original
+
+    restored.from_dict({(0, 1): 4.0})
+    assert restored.to_dict() == {(0, 1): 4.0}
+    assert restored.const_part == 0.0
+    assert restored.get((1, 0)) == 0.0
+
+
 def test_param_seed_and_param_grad():
     d = xgtpsa.Descriptor(2, 2, num_params=2, param_order=1)
     x = d.var(1, 0.5)

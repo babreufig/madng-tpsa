@@ -12,7 +12,7 @@ from . import _cffi
 from ._cffi import ffi, lib
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Iterable, Mapping, Sequence
 
     from .descriptor import Descriptor
 
@@ -103,7 +103,7 @@ class Tpsa:
         monomial_len = self.descriptor.monomial_length
         monomial_arr = ffi().new("unsigned char[]", monomial_len)
         coeff_ptr = ffi().new("double*")
-        coeffs = {}
+        coeffs: dict[tuple[int, ...], float] = {}
 
         i = -1
         while (i := lib().mad_tpsa_cycle(self._ptr, i, monomial_len, monomial_arr, coeff_ptr)) >= 0:
@@ -114,6 +114,20 @@ class Tpsa:
             coeffs[monomial] = coefficient
 
         return coeffs
+
+    def to_dict(self, tol: float = 1e-14) -> dict[tuple[int, ...], float]:
+        """Return this series as a monomial-to-coefficient dictionary."""
+        return self.monomial_coeffs(tol=tol)
+
+    def from_dict(self, coefficients: Mapping[tuple[int, ...], float]) -> None:
+        """Replace this series with coefficients from ``coefficients``.
+
+        Keys are full monomial exponent tuples with one entry per variable and
+        parameter. Existing coefficients are cleared before the new ones are set.
+        """
+        lib().mad_tpsa_clear(self._ptr)
+        for monomial, coefficient in coefficients.items():
+            self.set(monomial, coefficient)
 
     def grad(self) -> list[float]:
         """First-order coefficients for the descriptor variables."""
