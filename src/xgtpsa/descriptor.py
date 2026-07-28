@@ -19,7 +19,7 @@ from ._cffi import ffi, lib
 from .tpsa import Tpsa
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
 
 
 class _DescriptorAttrs(NamedTuple):
@@ -144,9 +144,17 @@ class Descriptor:
         lib().mad_tpsa_setvar(t.ptr, float(value), int(index), 0.0)
         return t
 
-    def vars(self) -> tuple[Tpsa, ...]:
-        """Create identity series for all variables on this descriptor."""
-        return tuple(self.var(index) for index in range(1, self.num_vars + 1))
+    def vars(self, values: Sequence[float] | None = None) -> tuple[Tpsa, ...]:
+        """Create identity series for all variables on this descriptor.
+
+        If ``values`` is provided, each variable is expanded around the
+        corresponding value.
+        """
+        if values is None:
+            values = [0.0] * self.num_vars
+        if len(values) != self.num_vars:
+            raise ValueError("values must contain one entry per variable")
+        return tuple(self.var(index, value) for index, value in enumerate(values, start=1))
 
     def param(self, index: int, value: float = 0.0) -> Tpsa:
         """Create identity parameter ``index`` on this descriptor.

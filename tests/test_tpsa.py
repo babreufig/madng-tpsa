@@ -25,6 +25,23 @@ def test_vars_unpack_all_identity_seeds():
     assert py.grad() == [0, 0, 0, 1]
 
 
+def test_vars_can_set_expansion_values():
+    d = xgtpsa.Descriptor(2, 2)
+    x, y = d.vars(values=[0.5, 2.0])
+
+    assert x.const_part == 0.5
+    assert y.const_part == 2.0
+    assert x.grad() == [1, 0]
+    assert y.grad() == [0, 1]
+
+
+def test_vars_values_must_match_num_vars():
+    d = xgtpsa.Descriptor(2, 2)
+
+    with pytest.raises(ValueError, match="values must contain one entry per variable"):
+        d.vars(values=[0.5])
+
+
 def test_constant_series():
     d = xgtpsa.Descriptor(3, 2)
     zero = d.zero()
