@@ -133,6 +133,12 @@ class Tpsa:
             param_grad.append(self.get(monomial))
         return param_grad
 
+    def copy(self) -> Tpsa:
+        """Return an independent copy of this series."""
+        result = self.descriptor.zero()
+        lib().mad_tpsa_copy(self._ptr, result._ptr)
+        return result
+
     # --- arithmetic (fresh result on the same descriptor; scalars mix freely) --- #
 
     def _binop(self, other: Tpsa, fn: str) -> Tpsa:
@@ -188,9 +194,3 @@ class Tpsa:
 
     def __neg__(self) -> Tpsa:
         return self * -1.0
-
-    def copy(self) -> Tpsa:
-        """Return an independent copy of this series."""
-        result = self.descriptor.zero()
-        lib().mad_tpsa_copy(self._ptr, result._ptr)
-        return result
