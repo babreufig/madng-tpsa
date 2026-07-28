@@ -156,6 +156,9 @@ class Tpsa:
         lib().mad_tpsa_copy(self._ptr, result._ptr)
         return result
 
+    def __repr__(self):
+        return f"Tpsa({self.to_dict()!r})"
+
     # --- arithmetic (fresh result on the same descriptor; scalars mix freely) --- #
 
     def _binop(self, other: Tpsa, fn: str) -> Tpsa:
