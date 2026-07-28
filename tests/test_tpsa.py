@@ -176,6 +176,16 @@ def test_binary_ops_reject_incompatible_descriptors():
         x + y
 
 
+def test_equality_checks_coefficients_and_descriptor_compatibility():
+    d = xgtpsa.Descriptor(1, 2)
+    x = d.var(1, 0.5)
+
+    assert x == x.copy()
+    assert x != x + 1.0
+    assert x.equals(x + 1e-15, tol=1e-14)
+    assert x != xgtpsa.Descriptor(2, 2).var(1)
+
+
 def test_copy_is_independent():
     d = xgtpsa.Descriptor(1, 1)
     x = d.var(1, 1.0)

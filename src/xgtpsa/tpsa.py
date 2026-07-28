@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from numbers import Integral, Real
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
 class Tpsa:
     """A truncated power series in the algebraic space defined by a descriptor."""
 
+    __array_priority__ = 1000
     __slots__ = ("_ptr",)  # pointer to the C tpsa_t* (the series itself)
 
     def __init__(self, descriptor: Descriptor) -> None:
@@ -149,6 +151,22 @@ class Tpsa:
         getattr(lib(), fn)(self._ptr, other._ptr, result._ptr)
         return result
 
+    def _unary_op(self, fn: str) -> Tpsa:
+        result = self.descriptor.zero()
+        getattr(lib(), fn)(self._ptr, result._ptr)
+        return result
+
+    def equals(self, other: Tpsa, tol: float = 0.0) -> bool:
+        """Return whether this series and ``other`` have matching coefficients."""
+        if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
+            return False
+        return bool(lib().mad_tpsa_equ(self._ptr, other._ptr, float(tol)))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Tpsa):
+            return False
+        return self.equals(other)
+
     def __add__(self, other: Tpsa | float) -> Tpsa:
         if isinstance(other, Tpsa):
             return self._binop(other, "mad_tpsa_add")
@@ -187,10 +205,156 @@ class Tpsa:
         lib().mad_tpsa_inv(self._ptr, float(other), result._ptr)
         return result
 
-    def __pow__(self, other: int | float) -> Tpsa:
+    def __pow__(self, other: Tpsa | int | float) -> Tpsa:
         result = self.descriptor.zero()
-        lib().mad_tpsa_pown(self._ptr, float(other), result._ptr)
+        if isinstance(other, Tpsa):
+            if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
+                raise ValueError("Incompatible TPSA descriptors")
+            lib().mad_tpsa_pow(self._ptr, other._ptr, result._ptr)
+        elif isinstance(other, Integral):
+            lib().mad_tpsa_powi(self._ptr, int(other), result._ptr)
+        elif isinstance(other, Real):
+            lib().mad_tpsa_pown(self._ptr, float(other), result._ptr)
+        else:
+            return NotImplemented
+        return result
+
+    def __rpow__(self, other: float) -> Tpsa:
+        result = self * float(np.log(other))
+        lib().mad_tpsa_exp(result._ptr, result._ptr)
         return result
 
     def __neg__(self) -> Tpsa:
         return self * -1.0
+
+    def __pos__(self) -> Tpsa:
+        return self.copy()
+
+    def __abs__(self) -> Tpsa:
+        return self.abs()
+
+    def abs(self) -> Tpsa:
+        """Return the TPSA absolute value determined by the constant coefficient."""
+        return self._unary_op("mad_tpsa_abs")
+
+    def norm(self) -> float:
+        """Return the sum of absolute values of the stored coefficients."""
+        return lib().mad_tpsa_nrm(self._ptr)
+
+    def unit(self) -> Tpsa:
+        """Return this series divided by the magnitude of its constant coefficient."""
+        if self.const_part == 0.0:
+            raise ZeroDivisionError("Cannot normalize a TPSA with zero constant part")
+        return self._unary_op("mad_tpsa_unit")
+
+    def sqrt(self) -> Tpsa:
+        """Return the square root of this series."""
+        return self._unary_op("mad_tpsa_sqrt")
+
+    def exp(self) -> Tpsa:
+        """Return the exponential of this series."""
+        return self._unary_op("mad_tpsa_exp")
+
+    def log(self) -> Tpsa:
+        """Return the natural logarithm of this series."""
+        return self._unary_op("mad_tpsa_log")
+
+    def sin(self) -> Tpsa:
+        """Return the sine of this series."""
+        return self._unary_op("mad_tpsa_sin")
+
+    def cos(self) -> Tpsa:
+        """Return the cosine of this series."""
+        return self._unary_op("mad_tpsa_cos")
+
+    def tan(self) -> Tpsa:
+        """Return the tangent of this series."""
+        return self._unary_op("mad_tpsa_tan")
+
+    def sinh(self) -> Tpsa:
+        """Return the hyperbolic sine of this series."""
+        return self._unary_op("mad_tpsa_sinh")
+
+    def cosh(self) -> Tpsa:
+        """Return the hyperbolic cosine of this series."""
+        return self._unary_op("mad_tpsa_cosh")
+
+    def tanh(self) -> Tpsa:
+        """Return the hyperbolic tangent of this series."""
+        return self._unary_op("mad_tpsa_tanh")
+
+    def sinc(self) -> Tpsa:
+        """Return ``sin(x) / x`` for this series, with MAD-NG's regularisation at zero."""
+        return self._unary_op("mad_tpsa_sinc")
+
+    def sinhc(self) -> Tpsa:
+        """Return ``sinh(x) / x`` for this series, with MAD-NG's regularisation at zero."""
+        return self._unary_op("mad_tpsa_sinhc")
+
+    def asin(self) -> Tpsa:
+        """Return the inverse sine of this series."""
+        return self._unary_op("mad_tpsa_asin")
+
+    def acos(self) -> Tpsa:
+        """Return the inverse cosine of this series."""
+        return self._unary_op("mad_tpsa_acos")
+
+    def atan(self) -> Tpsa:
+        """Return the inverse tangent of this series."""
+        return self._unary_op("mad_tpsa_atan")
+
+    def asinh(self) -> Tpsa:
+        """Return the inverse hyperbolic sine of this series."""
+        return self._unary_op("mad_tpsa_asinh")
+
+    def acosh(self) -> Tpsa:
+        """Return the inverse hyperbolic cosine of this series."""
+        return self._unary_op("mad_tpsa_acosh")
+
+    def atanh(self) -> Tpsa:
+        """Return the inverse hyperbolic tangent of this series."""
+        return self._unary_op("mad_tpsa_atanh")
+
+    def __array_ufunc__(self, ufunc: Any, method: str, *inputs: Any, **kwargs: Any) -> Any:
+        """Map supported NumPy ufunc calls to the matching TPSA operations."""
+        if method != "__call__" or kwargs:
+            return NotImplemented
+
+        if ufunc in _UFUNC_DISPATCH:
+            return _UFUNC_DISPATCH[ufunc](*inputs)
+        return NotImplemented
+
+    def __array_function__(
+        self, func: Any, types: tuple[type, ...], args: tuple[Any, ...], kwargs: dict[str, Any]
+    ) -> Any:
+        """Map supported NumPy functions to matching TPSA operations."""
+        if func is np.sinc and args == (self,) and not kwargs:
+            return (np.pi * self).sinc()
+        return NotImplemented
+
+
+_UFUNC_DISPATCH = {
+    np.absolute: Tpsa.abs,
+    np.sqrt: Tpsa.sqrt,
+    np.exp: Tpsa.exp,
+    np.log: Tpsa.log,
+    np.sin: Tpsa.sin,
+    np.cos: Tpsa.cos,
+    np.tan: Tpsa.tan,
+    np.sinh: Tpsa.sinh,
+    np.cosh: Tpsa.cosh,
+    np.tanh: Tpsa.tanh,
+    np.arcsin: Tpsa.asin,
+    np.arccos: Tpsa.acos,
+    np.arctan: Tpsa.atan,
+    np.arcsinh: Tpsa.asinh,
+    np.arccosh: Tpsa.acosh,
+    np.arctanh: Tpsa.atanh,
+    np.negative: Tpsa.__neg__,
+    np.positive: Tpsa.__pos__,
+    np.add: lambda left, right: left + right,
+    np.subtract: lambda left, right: left - right,
+    np.multiply: lambda left, right: left * right,
+    np.divide: lambda left, right: left / right,
+    np.power: lambda left, right: left**right,
+}
