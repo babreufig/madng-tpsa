@@ -69,6 +69,7 @@ foreach(source_path IN LISTS MADNG_SOURCE_PATHS)
 endforeach()
 
 add_library(madng_tpsa SHARED ${MADNG_TPSA_SOURCES})
+target_sources(madng_tpsa PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native/xgtpsa.c")
 set_target_properties(madng_tpsa PROPERTIES
   OUTPUT_NAME "madng_tpsa"
   C_STANDARD 11
@@ -81,7 +82,10 @@ set_source_files_properties("${GTPSA_BUILD_SRC}/mad_mem.c" PROPERTIES
   COMPILE_OPTIONS "-std=gnu11"
 )
 
-target_include_directories(madng_tpsa PRIVATE "${GTPSA_BUILD_SRC}")
+target_include_directories(madng_tpsa PRIVATE
+  "${GTPSA_BUILD_SRC}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/xgtpsa/include"
+)
 target_compile_options(madng_tpsa PRIVATE
   -include stdlib.h
   -W
@@ -128,6 +132,7 @@ list(TRANSFORM MADNG_PUBLIC_HEADERS PREPEND "${MADNG_SRC}/" OUTPUT_VARIABLE MADN
 
 set(XGTPSA_SOURCE_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/xgtpsa/lib")
 set(XGTPSA_SOURCE_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/xgtpsa/include")
+set(XGTPSA_PUBLIC_HEADERS "${XGTPSA_SOURCE_INCLUDE_DIR}/xgtpsa.h")
 add_custom_command(TARGET madng_tpsa POST_BUILD
   COMMAND "${CMAKE_COMMAND}" -E make_directory "${XGTPSA_SOURCE_LIB_DIR}"
   COMMAND "${CMAKE_COMMAND}" -E make_directory "${XGTPSA_SOURCE_INCLUDE_DIR}"
@@ -142,5 +147,6 @@ install(TARGETS madng_tpsa
 )
 install(FILES
   ${MADNG_PUBLIC_HEADER_PATHS}
+  ${XGTPSA_PUBLIC_HEADERS}
   DESTINATION xgtpsa/include
 )

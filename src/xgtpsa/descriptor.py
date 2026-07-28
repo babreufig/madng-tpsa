@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple
 
 from ._cffi import ffi, lib
+from .tpsa import Tpsa
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -123,6 +124,43 @@ class Descriptor:
         m = [int(x) for x in monomial]
         arr = ffi().new("unsigned char[]", m)
         return bool(lib().mad_desc_isvalidm(self._ptr, len(m), arr))
+
+    def constant(self, value: float, /) -> Tpsa:
+        """Create a constant TPSA series on this descriptor."""
+        t = self.zero()
+        lib().mad_tpsa_seti(t.ptr, 0, 0.0, float(value))
+        return t
+
+    def zero(self) -> Tpsa:
+        """Create a zero TPSA series on this descriptor."""
+        return Tpsa(self)
+
+    def var(self, index: int, value: float = 0.0) -> Tpsa:
+        """Create identity variable ``index`` on this descriptor.
+
+        The variable index starts from 1 and is expanded around ``value``.
+        """
+        t = Tpsa(self)
+        lib().mad_tpsa_setvar(t.ptr, float(value), int(index), 0.0)
+        return t
+
+    def vars(self) -> tuple[Tpsa, ...]:
+        """Create identity series for all variables on this descriptor."""
+        return tuple(self.var(index) for index in range(1, self.num_vars + 1))
+
+    def param(self, index: int, value: float = 0.0) -> Tpsa:
+        """Create identity parameter ``index`` on this descriptor.
+
+        The parameter index starts from 1. Parameters are appended after
+        variables in monomial tuples.
+        """
+        t = Tpsa.from_ptr(lib().mad_tpsa_newd(self.ptr, 1))
+        lib().mad_tpsa_setprm(t.ptr, float(value), int(index))
+        return t
+
+    def params(self) -> tuple[Tpsa, ...]:
+        """Create identity series for all parameters on this descriptor."""
+        return tuple(self.param(index) for index in range(1, self.num_params + 1))
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, Descriptor) and self._ptr == other._ptr

@@ -43,6 +43,8 @@ CDEF = """
     void mad_tpsa_scl(const void* a, double v, void* c);
     void mad_tpsa_inv(const void* a, double v, void* c);
     void mad_tpsa_axpb(double a, const void* x, double b, void* r);
+
+    int xgtpsa_check_tpsa_compatibility(const void* a, const void* b);
 """
 
 _ffi = cffi.FFI()
