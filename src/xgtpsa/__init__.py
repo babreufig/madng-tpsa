@@ -17,15 +17,15 @@ from .descriptor import Descriptor
 from .paths import core_library, include_dir
 from .tpsa import Tpsa
 
-__version__ = "0.1.0"
+__version__ = '0.1.0'
 
 __all__ = [
-    "CDEF",
-    "Descriptor",
-    "Tpsa",
-    "core_library",
-    "ffi",
-    "include_dir",
-    "lib",
-    "__version__",
+    'CDEF',
+    'Descriptor',
+    'Tpsa',
+    'core_library',
+    'ffi',
+    'include_dir',
+    'lib',
+    '__version__',
 ]

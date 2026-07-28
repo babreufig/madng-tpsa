@@ -40,7 +40,7 @@ class Descriptor:
     _instances_by_ptr: ClassVar[dict[int, Descriptor]] = {}
     _ptr: Any
 
-    __slots__ = ("_ptr",)  # pointer to the C descriptor (mad_desc_t*)
+    __slots__ = ('_ptr',)  # pointer to the C descriptor (mad_desc_t*)
 
     def __new__(
         cls,
@@ -51,9 +51,9 @@ class Descriptor:
     ) -> Descriptor:
         """Create or reuse a descriptor."""
         if order <= 0:
-            raise ValueError("Descriptor order must be positive")
+            raise ValueError('Descriptor order must be positive')
         if num_params > 0 and param_order <= 0:
-            raise ValueError("Descriptor parameter order must be positive")
+            raise ValueError('Descriptor parameter order must be positive')
 
         if num_params > 0:
             ptr = lib().mad_desc_newvp(num_vars, order, num_params, param_order)
@@ -65,7 +65,7 @@ class Descriptor:
     @classmethod
     def from_ptr(cls, ptr: Any) -> Descriptor:
         """Return the interned ``Descriptor`` for a raw C pointer."""
-        key = int(ffi().cast("uintptr_t", ptr))
+        key = int(ffi().cast('uintptr_t', ptr))
         descriptor = cls._instances_by_ptr.get(key)
         if descriptor is None:
             descriptor = super().__new__(cls)
@@ -80,9 +80,9 @@ class Descriptor:
 
     def _get_descriptor_attrs(self) -> _DescriptorAttrs:
         """Query the attributes of the GTPSA descriptor."""
-        order_ptr = ffi().new("unsigned char*")
-        num_params_ptr = ffi().new("int*")
-        param_order_ptr = ffi().new("unsigned char*")
+        order_ptr = ffi().new('unsigned char*')
+        num_params_ptr = ffi().new('int*')
+        param_order_ptr = ffi().new('unsigned char*')
 
         num_vars = lib().mad_desc_getnv(self._ptr, order_ptr, num_params_ptr, param_order_ptr)
 
@@ -122,7 +122,7 @@ class Descriptor:
     def is_valid_monomial(self, monomial: Iterable[int]) -> bool:
         """Whether ``monomial`` is representable (querying beyond-order aborts C)."""
         m = [int(x) for x in monomial]
-        arr = ffi().new("unsigned char[]", m)
+        arr = ffi().new('unsigned char[]', m)
         return bool(lib().mad_desc_isvalidm(self._ptr, len(m), arr))
 
     def constant(self, value: float, /) -> Tpsa:
@@ -153,7 +153,7 @@ class Descriptor:
         if values is None:
             values = [0.0] * self.num_vars
         if len(values) != self.num_vars:
-            raise ValueError("values must contain one entry per variable")
+            raise ValueError('values must contain one entry per variable')
         return tuple(self.var(index, value) for index, value in enumerate(values, start=1))
 
     def param(self, index: int, value: float = 0.0) -> Tpsa:
@@ -174,15 +174,15 @@ class Descriptor:
         return isinstance(other, Descriptor) and self._ptr == other._ptr
 
     def __hash__(self) -> int:
-        return int(ffi().cast("uintptr_t", self._ptr))
+        return int(ffi().cast('uintptr_t', self._ptr))
 
     def __repr__(self) -> str:
         attrs = self._get_descriptor_attrs()
 
         if attrs.num_params:
             return (
-                f"Descriptor(num_vars={attrs.num_vars}, order={attrs.order}, "
-                f"num_params={attrs.num_params}, param_order={attrs.param_order})"
+                f'Descriptor(num_vars={attrs.num_vars}, order={attrs.order}, '
+                f'num_params={attrs.num_params}, param_order={attrs.param_order})'
             )
 
-        return f"Descriptor(num_vars={attrs.num_vars}, order={attrs.order})"
+        return f'Descriptor(num_vars={attrs.num_vars}, order={attrs.order})'

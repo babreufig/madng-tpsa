@@ -14,26 +14,26 @@ def _constant(value: float) -> xgtpsa.Tpsa:
 
 
 @pytest.mark.parametrize(
-    ("method_name", "numpy_func", "value", "method_expected", "numpy_expected"),
+    ('method_name', 'numpy_func', 'value', 'method_expected', 'numpy_expected'),
     [
-        ("abs", np.abs, -2.0, 2.0, 2.0),
-        ("sqrt", np.sqrt, 4.0, 2.0, 2.0),
-        ("exp", np.exp, 0.5, math.exp(0.5), math.exp(0.5)),
-        ("log", np.log, 2.0, math.log(2.0), math.log(2.0)),
-        ("sin", np.sin, 0.5, math.sin(0.5), math.sin(0.5)),
-        ("cos", np.cos, 0.5, math.cos(0.5), math.cos(0.5)),
-        ("tan", np.tan, 0.5, math.tan(0.5), math.tan(0.5)),
-        ("sinh", np.sinh, 0.5, math.sinh(0.5), math.sinh(0.5)),
-        ("cosh", np.cosh, 0.5, math.cosh(0.5), math.cosh(0.5)),
-        ("tanh", np.tanh, 0.5, math.tanh(0.5), math.tanh(0.5)),
-        ("asin", np.arcsin, 0.5, math.asin(0.5), math.asin(0.5)),
-        ("acos", np.arccos, 0.5, math.acos(0.5), math.acos(0.5)),
-        ("atan", np.arctan, 0.5, math.atan(0.5), math.atan(0.5)),
-        ("asinh", np.arcsinh, 0.5, math.asinh(0.5), math.asinh(0.5)),
-        ("acosh", np.arccosh, 2.0, math.acosh(2.0), math.acosh(2.0)),
-        ("atanh", np.arctanh, 0.5, math.atanh(0.5), math.atanh(0.5)),
-        ("sinc", np.sinc, 0.5, math.sin(0.5) / 0.5, np.sinc(0.5)),
-        ("sinhc", None, 0.5, math.sinh(0.5) / 0.5, None),
+        ('abs', np.abs, -2.0, 2.0, 2.0),
+        ('sqrt', np.sqrt, 4.0, 2.0, 2.0),
+        ('exp', np.exp, 0.5, math.exp(0.5), math.exp(0.5)),
+        ('log', np.log, 2.0, math.log(2.0), math.log(2.0)),
+        ('sin', np.sin, 0.5, math.sin(0.5), math.sin(0.5)),
+        ('cos', np.cos, 0.5, math.cos(0.5), math.cos(0.5)),
+        ('tan', np.tan, 0.5, math.tan(0.5), math.tan(0.5)),
+        ('sinh', np.sinh, 0.5, math.sinh(0.5), math.sinh(0.5)),
+        ('cosh', np.cosh, 0.5, math.cosh(0.5), math.cosh(0.5)),
+        ('tanh', np.tanh, 0.5, math.tanh(0.5), math.tanh(0.5)),
+        ('asin', np.arcsin, 0.5, math.asin(0.5), math.asin(0.5)),
+        ('acos', np.arccos, 0.5, math.acos(0.5), math.acos(0.5)),
+        ('atan', np.arctan, 0.5, math.atan(0.5), math.atan(0.5)),
+        ('asinh', np.arcsinh, 0.5, math.asinh(0.5), math.asinh(0.5)),
+        ('acosh', np.arccosh, 2.0, math.acosh(2.0), math.acosh(2.0)),
+        ('atanh', np.arctanh, 0.5, math.atanh(0.5), math.atanh(0.5)),
+        ('sinc', np.sinc, 0.5, math.sin(0.5) / 0.5, np.sinc(0.5)),
+        ('sinhc', None, 0.5, math.sinh(0.5) / 0.5, None),
     ],
 )
 def test_unary_math_methods_and_numpy_ufuncs(
@@ -64,7 +64,7 @@ def test_norm_and_unit():
 
 
 def test_unit_rejects_zero_constant_part():
-    with pytest.raises(ZeroDivisionError, match="zero constant part"):
+    with pytest.raises(ZeroDivisionError, match='zero constant part'):
         xgtpsa.Descriptor(1, 2).var(1).unit()
 
 
@@ -89,13 +89,13 @@ def test_selected_math_derivatives():
 
 
 @pytest.mark.parametrize(
-    ("method_name", "special_func", "value", "expected"),
+    ('method_name', 'special_func', 'value', 'expected'),
     [
-        ("erf", scipy.special.erf, 0.5, scipy.special.erf(0.5)),
-        ("erfc", scipy.special.erfc, 0.5, scipy.special.erfc(0.5)),
-        ("erfcx", scipy.special.erfcx, 0.5, scipy.special.erfcx(0.5)),
-        ("erfi", scipy.special.erfi, 0.5, scipy.special.erfi(0.5)),
-        ("wofz", scipy.special.wofz, 0.5, scipy.special.wofz(0.5).real),
+        ('erf', scipy.special.erf, 0.5, scipy.special.erf(0.5)),
+        ('erfc', scipy.special.erfc, 0.5, scipy.special.erfc(0.5)),
+        ('erfcx', scipy.special.erfcx, 0.5, scipy.special.erfcx(0.5)),
+        ('erfi', scipy.special.erfi, 0.5, scipy.special.erfi(0.5)),
+        ('wofz', scipy.special.wofz, 0.5, scipy.special.wofz(0.5).real),
     ],
 )
 def test_scipy_special_methods_and_ufuncs(method_name, special_func, value, expected):
@@ -107,23 +107,23 @@ def test_scipy_special_methods_and_ufuncs(method_name, special_func, value, expe
 
 
 @pytest.mark.parametrize(
-    ("numpy_func", "left", "right", "expected"),
+    ('numpy_func', 'left', 'right', 'expected'),
     [
-        (np.add, "x", 3.0, 5.0),
-        (np.subtract, 3.0, "x", 1.0),
-        (np.multiply, "x", 3.0, 6.0),
-        (np.divide, 6.0, "x", 3.0),
-        (np.power, "x", 3, 8.0),
-        (np.atan2, "x", 3.0, math.atan2(2.0, 3.0)),
-        (np.hypot, "x", 3.0, math.hypot(2.0, 3.0)),
+        (np.add, 'x', 3.0, 5.0),
+        (np.subtract, 3.0, 'x', 1.0),
+        (np.multiply, 'x', 3.0, 6.0),
+        (np.divide, 6.0, 'x', 3.0),
+        (np.power, 'x', 3, 8.0),
+        (np.atan2, 'x', 3.0, math.atan2(2.0, 3.0)),
+        (np.hypot, 'x', 3.0, math.hypot(2.0, 3.0)),
     ],
 )
 def test_numpy_binary_ufuncs(numpy_func, left, right, expected):
     d = xgtpsa.Descriptor(1, 3)
     x = d.var(1, 2.0)
 
-    left_arg = x if left == "x" else left
-    right_arg = x if right == "x" else right
+    left_arg = x if left == 'x' else left
+    right_arg = x if right == 'x' else right
 
     assert numpy_func(left_arg, right_arg).const_part == pytest.approx(expected)
 
@@ -136,7 +136,7 @@ def test_hypot3_method():
 
 
 @pytest.mark.parametrize(
-    ("numpy_func", "expected"),
+    ('numpy_func', 'expected'),
     [
         (np.negative, -2.0),
         (np.positive, 2.0),

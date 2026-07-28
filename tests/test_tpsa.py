@@ -38,7 +38,7 @@ def test_vars_can_set_expansion_values():
 def test_vars_values_must_match_num_vars():
     d = xgtpsa.Descriptor(2, 2)
 
-    with pytest.raises(ValueError, match="values must contain one entry per variable"):
+    with pytest.raises(ValueError, match='values must contain one entry per variable'):
         d.vars(values=[0.5])
 
 
@@ -172,7 +172,7 @@ def test_binary_ops_reject_incompatible_descriptors():
     x = xgtpsa.Descriptor(1, 2).var(1)
     y = xgtpsa.Descriptor(2, 2).var(1)
 
-    with pytest.raises(ValueError, match="Incompatible TPSA descriptors"):
+    with pytest.raises(ValueError, match='Incompatible TPSA descriptors'):
         x + y
 
 

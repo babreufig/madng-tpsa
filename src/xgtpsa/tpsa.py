@@ -21,7 +21,7 @@ class Tpsa:
     """A truncated power series in the algebraic space defined by a descriptor."""
 
     __array_priority__ = 1000
-    __slots__ = ("_ptr",)  # pointer to the C tpsa_t* (the series itself)
+    __slots__ = ('_ptr',)  # pointer to the C tpsa_t* (the series itself)
 
     def __init__(self, descriptor: Descriptor) -> None:
         """Create a zero series on ``descriptor``."""
@@ -37,7 +37,7 @@ class Tpsa:
     def __del__(self) -> None:
         # The underlying object, or the library might have already been released,
         # if not release the handle now.
-        if getattr(self, "_ptr", None) is not None and _cffi._lib is not None:
+        if getattr(self, '_ptr', None) is not None and _cffi._lib is not None:
             _cffi._lib.mad_tpsa_del(self._ptr)
             self._ptr = None
 
@@ -66,7 +66,7 @@ class Tpsa:
     def get(self, monomial: Iterable[int]) -> float:
         """Return the coefficient for ``monomial``."""
         monomial_orders = list(monomial)
-        monomial_arr = ffi().new("unsigned char[]", monomial_orders)
+        monomial_arr = ffi().new('unsigned char[]', monomial_orders)
         return lib().mad_tpsa_getm(self._ptr, len(monomial_orders), monomial_arr)
 
     def set_const_part(self, v: float) -> None:
@@ -76,7 +76,7 @@ class Tpsa:
     def set(self, monomial: Iterable[int], value: float) -> None:
         """Set the coefficient for ``monomial``."""
         monomial_orders = list(monomial)
-        monomial_arr = ffi().new("unsigned char[]", monomial_orders)
+        monomial_arr = ffi().new('unsigned char[]', monomial_orders)
         lib().mad_tpsa_setm(self._ptr, len(monomial_orders), monomial_arr, 0.0, float(value))
 
     def coefficient(
@@ -93,7 +93,7 @@ class Tpsa:
             return self.get(tuple(monomial_arr))
         if monomial_arr.ndim == 2:
             return np.array([self.get(tuple(row)) for row in monomial_arr])
-        raise ValueError("monomials must be one monomial or a two-dimensional batch")
+        raise ValueError('monomials must be one monomial or a two-dimensional batch')
 
     def monomial_coeffs(self, tol: float = 1e-14) -> dict[tuple[int, ...], float]:
         """Return stored coefficients larger than ``tol`` in absolute value.
@@ -101,8 +101,8 @@ class Tpsa:
         Keys are full monomial tuples with one entry per variable and parameter.
         """
         monomial_len = self.descriptor.monomial_length
-        monomial_arr = ffi().new("unsigned char[]", monomial_len)
-        coeff_ptr = ffi().new("double*")
+        monomial_arr = ffi().new('unsigned char[]', monomial_len)
+        coeff_ptr = ffi().new('double*')
         coeffs: dict[tuple[int, ...], float] = {}
 
         i = -1
@@ -157,13 +157,13 @@ class Tpsa:
         return result
 
     def __repr__(self):
-        return f"Tpsa({self.to_dict()!r})"
+        return f'Tpsa({self.to_dict()!r})'
 
     # --- arithmetic (fresh result on the same descriptor; scalars mix freely) --- #
 
     def _binop(self, other: Tpsa, fn: str) -> Tpsa:
         if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
-            raise ValueError("Incompatible TPSA descriptors")
+            raise ValueError('Incompatible TPSA descriptors')
 
         result = self.descriptor.zero()
         getattr(lib(), fn)(self._ptr, other._ptr, result._ptr)
@@ -172,7 +172,7 @@ class Tpsa:
     def _coerce_operand(self, other: Tpsa | float) -> Tpsa:
         if isinstance(other, Tpsa):
             if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
-                raise ValueError("Incompatible TPSA descriptors")
+                raise ValueError('Incompatible TPSA descriptors')
             return other
         return self.descriptor.constant(float(other))
 
@@ -200,7 +200,7 @@ class Tpsa:
 
     def __add__(self, other: Tpsa | float) -> Tpsa:
         if isinstance(other, Tpsa):
-            return self._binop(other, "mad_tpsa_add")
+            return self._binop(other, 'mad_tpsa_add')
         result = self.descriptor.zero()
         lib().mad_tpsa_axpb(1.0, self._ptr, float(other), result._ptr)
         return result
@@ -209,7 +209,7 @@ class Tpsa:
 
     def __sub__(self, other: Tpsa | float) -> Tpsa:
         if isinstance(other, Tpsa):
-            return self._binop(other, "mad_tpsa_sub")
+            return self._binop(other, 'mad_tpsa_sub')
         return self.__add__(-float(other))
 
     def __rsub__(self, other: float) -> Tpsa:
@@ -219,7 +219,7 @@ class Tpsa:
 
     def __mul__(self, other: Tpsa | float) -> Tpsa:
         if isinstance(other, Tpsa):
-            return self._binop(other, "mad_tpsa_mul")
+            return self._binop(other, 'mad_tpsa_mul')
         result = self.descriptor.zero()
         lib().mad_tpsa_scl(self._ptr, float(other), result._ptr)
         return result
@@ -228,7 +228,7 @@ class Tpsa:
 
     def __truediv__(self, other: Tpsa | float) -> Tpsa:
         if isinstance(other, Tpsa):
-            return self._binop(other, "mad_tpsa_div")
+            return self._binop(other, 'mad_tpsa_div')
         result = self.descriptor.zero()
         lib().mad_tpsa_divn(self._ptr, float(other), result._ptr)
         return result
@@ -242,7 +242,7 @@ class Tpsa:
         result = self.descriptor.zero()
         if isinstance(other, Tpsa):
             if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
-                raise ValueError("Incompatible TPSA descriptors")
+                raise ValueError('Incompatible TPSA descriptors')
             lib().mad_tpsa_pow(self._ptr, other._ptr, result._ptr)
         elif isinstance(other, Integral):
             lib().mad_tpsa_powi(self._ptr, int(other), result._ptr)
@@ -268,7 +268,7 @@ class Tpsa:
 
     def abs(self) -> Tpsa:
         """Return the TPSA absolute value determined by the constant coefficient."""
-        return self._unary_op("mad_tpsa_abs")
+        return self._unary_op('mad_tpsa_abs')
 
     def norm(self) -> float:
         """Return the sum of absolute values of the stored coefficients."""
@@ -277,116 +277,116 @@ class Tpsa:
     def unit(self) -> Tpsa:
         """Return this series divided by the magnitude of its constant coefficient."""
         if self.const_part == 0.0:
-            raise ZeroDivisionError("Cannot normalize a TPSA with zero constant part")
-        return self._unary_op("mad_tpsa_unit")
+            raise ZeroDivisionError('Cannot normalize a TPSA with zero constant part')
+        return self._unary_op('mad_tpsa_unit')
 
     def sqrt(self) -> Tpsa:
         """Return the square root of this series."""
-        return self._unary_op("mad_tpsa_sqrt")
+        return self._unary_op('mad_tpsa_sqrt')
 
     def exp(self) -> Tpsa:
         """Return the exponential of this series."""
-        return self._unary_op("mad_tpsa_exp")
+        return self._unary_op('mad_tpsa_exp')
 
     def log(self) -> Tpsa:
         """Return the natural logarithm of this series."""
-        return self._unary_op("mad_tpsa_log")
+        return self._unary_op('mad_tpsa_log')
 
     def sin(self) -> Tpsa:
         """Return the sine of this series."""
-        return self._unary_op("mad_tpsa_sin")
+        return self._unary_op('mad_tpsa_sin')
 
     def cos(self) -> Tpsa:
         """Return the cosine of this series."""
-        return self._unary_op("mad_tpsa_cos")
+        return self._unary_op('mad_tpsa_cos')
 
     def tan(self) -> Tpsa:
         """Return the tangent of this series."""
-        return self._unary_op("mad_tpsa_tan")
+        return self._unary_op('mad_tpsa_tan')
 
     def sinc(self) -> Tpsa:
         """Return ``sin(x) / x`` for this series, with MAD-NG's regularisation at zero."""
-        return self._unary_op("mad_tpsa_sinc")
+        return self._unary_op('mad_tpsa_sinc')
 
     def asin(self) -> Tpsa:
         """Return the inverse sine of this series."""
-        return self._unary_op("mad_tpsa_asin")
+        return self._unary_op('mad_tpsa_asin')
 
     def acos(self) -> Tpsa:
         """Return the inverse cosine of this series."""
-        return self._unary_op("mad_tpsa_acos")
+        return self._unary_op('mad_tpsa_acos')
 
     def atan(self) -> Tpsa:
         """Return the inverse tangent of this series."""
-        return self._unary_op("mad_tpsa_atan")
+        return self._unary_op('mad_tpsa_atan')
 
     def sincos(self) -> tuple[Tpsa, Tpsa]:
         """Return ``(sin(x), cos(x))`` for this series."""
-        return self._pair_op("mad_tpsa_sincos")
+        return self._pair_op('mad_tpsa_sincos')
 
     def sincosq(self) -> tuple[Tpsa, Tpsa]:
         """Return ``(sinc(sqrt(x)), cos(sqrt(x)))`` for this series."""
-        return self._pair_op("mad_tpsa_sincosq")
+        return self._pair_op('mad_tpsa_sincosq')
 
     def sincosmq(self) -> tuple[Tpsa, Tpsa]:
         """Return ``((sinc(sqrt(x)) - 1) / x, (cos(sqrt(x)) - 1) / x)``."""
-        return self._pair_op("mad_tpsa_sincosmq")
+        return self._pair_op('mad_tpsa_sincosmq')
 
     def sinh(self) -> Tpsa:
         """Return the hyperbolic sine of this series."""
-        return self._unary_op("mad_tpsa_sinh")
+        return self._unary_op('mad_tpsa_sinh')
 
     def cosh(self) -> Tpsa:
         """Return the hyperbolic cosine of this series."""
-        return self._unary_op("mad_tpsa_cosh")
+        return self._unary_op('mad_tpsa_cosh')
 
     def tanh(self) -> Tpsa:
         """Return the hyperbolic tangent of this series."""
-        return self._unary_op("mad_tpsa_tanh")
+        return self._unary_op('mad_tpsa_tanh')
 
     def sinhc(self) -> Tpsa:
         """Return ``sinh(x) / x`` for this series, with MAD-NG's regularisation at zero."""
-        return self._unary_op("mad_tpsa_sinhc")
+        return self._unary_op('mad_tpsa_sinhc')
 
     def asinh(self) -> Tpsa:
         """Return the inverse hyperbolic sine of this series."""
-        return self._unary_op("mad_tpsa_asinh")
+        return self._unary_op('mad_tpsa_asinh')
 
     def acosh(self) -> Tpsa:
         """Return the inverse hyperbolic cosine of this series."""
-        return self._unary_op("mad_tpsa_acosh")
+        return self._unary_op('mad_tpsa_acosh')
 
     def atanh(self) -> Tpsa:
         """Return the inverse hyperbolic tangent of this series."""
-        return self._unary_op("mad_tpsa_atanh")
+        return self._unary_op('mad_tpsa_atanh')
 
     def sincosh(self) -> tuple[Tpsa, Tpsa]:
         """Return ``(sinh(x), cosh(x))`` for this series."""
-        return self._pair_op("mad_tpsa_sincosh")
+        return self._pair_op('mad_tpsa_sincosh')
 
     def sincoshq(self) -> tuple[Tpsa, Tpsa]:
         """Return ``(sinhc(sqrt(x)), cosh(sqrt(x)))`` for this series."""
-        return self._pair_op("mad_tpsa_sincoshq")
+        return self._pair_op('mad_tpsa_sincoshq')
 
     def sincoshmq(self) -> tuple[Tpsa, Tpsa]:
         """Return ``((sinhc(sqrt(x)) - 1) / x, (cosh(sqrt(x)) - 1) / x)``."""
-        return self._pair_op("mad_tpsa_sincoshmq")
+        return self._pair_op('mad_tpsa_sincoshmq')
 
     def erf(self) -> Tpsa:
         """Return the error function of this series."""
-        return self._unary_op("mad_tpsa_erf")
+        return self._unary_op('mad_tpsa_erf')
 
     def erfc(self) -> Tpsa:
         """Return the complementary error function of this series."""
-        return self._unary_op("mad_tpsa_erfc")
+        return self._unary_op('mad_tpsa_erfc')
 
     def erfcx(self) -> Tpsa:
         """Return the scaled complementary error function of this series."""
-        return self._unary_op("mad_tpsa_erfcx")
+        return self._unary_op('mad_tpsa_erfcx')
 
     def erfi(self) -> Tpsa:
         """Return the imaginary error function of this series."""
-        return self._unary_op("mad_tpsa_erfi")
+        return self._unary_op('mad_tpsa_erfi')
 
     def wofz(self) -> Tpsa:
         """Return the real-valued Faddeeva function for this series.
@@ -395,7 +395,7 @@ class Tpsa:
         part of SciPy's complex-valued ``scipy.special.wofz``. The imaginary
         part is not represented by this API.
         """
-        return self._unary_op("mad_tpsa_wf")
+        return self._unary_op('mad_tpsa_wf')
 
     def atan2(self, other: Tpsa | float) -> Tpsa:
         """Return ``atan2(self, other)``."""
@@ -421,7 +421,7 @@ class Tpsa:
 
     def __array_ufunc__(self, ufunc: Any, method: str, *inputs: Any, **kwargs: Any) -> Any:
         """Map supported NumPy ufunc calls to the matching TPSA operations."""
-        if method != "__call__" or kwargs:
+        if method != '__call__' or kwargs:
             return NotImplemented
 
         if ufunc in _UFUNC_DISPATCH:

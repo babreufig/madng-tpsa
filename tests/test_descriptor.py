@@ -14,7 +14,7 @@ def test_descriptor_is_reused():
     assert a in xgtpsa.Descriptor._instances_by_ptr.values()
 
 
-@pytest.mark.parametrize("nv, order", [(1, 1), (2, 3), (6, 4)])
+@pytest.mark.parametrize('nv, order', [(1, 1), (2, 3), (6, 4)])
 def test_descriptor_queries_come_from_c(nv, order):
     d = xgtpsa.Descriptor(nv, order)
     assert (d.num_vars, d.order) == (nv, order)
@@ -22,7 +22,7 @@ def test_descriptor_queries_come_from_c(nv, order):
 
 
 def test_descriptor_order_must_be_positive():
-    with pytest.raises(ValueError, match="Descriptor order must be positive"):
+    with pytest.raises(ValueError, match='Descriptor order must be positive'):
         xgtpsa.Descriptor(6, 0)
 
 
@@ -30,11 +30,11 @@ def test_descriptor_with_parameters():
     d = xgtpsa.Descriptor(6, 2, num_params=2, param_order=1)
     assert (d.num_vars, d.num_params, d.param_order) == (6, 2, 1)
     assert d.monomial_length == 8
-    assert "num_params=2" in repr(d)
+    assert 'num_params=2' in repr(d)
 
 
 def test_descriptor_param_order_must_be_positive():
-    with pytest.raises(ValueError, match="Descriptor parameter order must be positive"):
+    with pytest.raises(ValueError, match='Descriptor parameter order must be positive'):
         xgtpsa.Descriptor(6, 2, num_params=2, param_order=0)
 
 
