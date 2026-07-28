@@ -6,6 +6,7 @@ from numbers import Integral, Real
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import scipy.special
 
 from . import _cffi
 from ._cffi import ffi, lib
@@ -151,10 +152,23 @@ class Tpsa:
         getattr(lib(), fn)(self._ptr, other._ptr, result._ptr)
         return result
 
+    def _coerce_operand(self, other: Tpsa | float) -> Tpsa:
+        if isinstance(other, Tpsa):
+            if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
+                raise ValueError("Incompatible TPSA descriptors")
+            return other
+        return self.descriptor.constant(float(other))
+
     def _unary_op(self, fn: str) -> Tpsa:
         result = self.descriptor.zero()
         getattr(lib(), fn)(self._ptr, result._ptr)
         return result
+
+    def _pair_op(self, fn: str) -> tuple[Tpsa, Tpsa]:
+        first = self.descriptor.zero()
+        second = self.descriptor.zero()
+        getattr(lib(), fn)(self._ptr, first._ptr, second._ptr)
+        return first, second
 
     def equals(self, other: Tpsa, tol: float = 0.0) -> bool:
         """Return whether this series and ``other`` have matching coefficients."""
@@ -198,7 +212,9 @@ class Tpsa:
     def __truediv__(self, other: Tpsa | float) -> Tpsa:
         if isinstance(other, Tpsa):
             return self._binop(other, "mad_tpsa_div")
-        return self.__mul__(1.0 / float(other))
+        result = self.descriptor.zero()
+        lib().mad_tpsa_divn(self._ptr, float(other), result._ptr)
+        return result
 
     def __rtruediv__(self, other: float) -> Tpsa:
         result = self.descriptor.zero()
@@ -271,25 +287,9 @@ class Tpsa:
         """Return the tangent of this series."""
         return self._unary_op("mad_tpsa_tan")
 
-    def sinh(self) -> Tpsa:
-        """Return the hyperbolic sine of this series."""
-        return self._unary_op("mad_tpsa_sinh")
-
-    def cosh(self) -> Tpsa:
-        """Return the hyperbolic cosine of this series."""
-        return self._unary_op("mad_tpsa_cosh")
-
-    def tanh(self) -> Tpsa:
-        """Return the hyperbolic tangent of this series."""
-        return self._unary_op("mad_tpsa_tanh")
-
     def sinc(self) -> Tpsa:
         """Return ``sin(x) / x`` for this series, with MAD-NG's regularisation at zero."""
         return self._unary_op("mad_tpsa_sinc")
-
-    def sinhc(self) -> Tpsa:
-        """Return ``sinh(x) / x`` for this series, with MAD-NG's regularisation at zero."""
-        return self._unary_op("mad_tpsa_sinhc")
 
     def asin(self) -> Tpsa:
         """Return the inverse sine of this series."""
@@ -303,6 +303,34 @@ class Tpsa:
         """Return the inverse tangent of this series."""
         return self._unary_op("mad_tpsa_atan")
 
+    def sincos(self) -> tuple[Tpsa, Tpsa]:
+        """Return ``(sin(x), cos(x))`` for this series."""
+        return self._pair_op("mad_tpsa_sincos")
+
+    def sincosq(self) -> tuple[Tpsa, Tpsa]:
+        """Return ``(sinc(sqrt(x)), cos(sqrt(x)))`` for this series."""
+        return self._pair_op("mad_tpsa_sincosq")
+
+    def sincosmq(self) -> tuple[Tpsa, Tpsa]:
+        """Return ``((sinc(sqrt(x)) - 1) / x, (cos(sqrt(x)) - 1) / x)``."""
+        return self._pair_op("mad_tpsa_sincosmq")
+
+    def sinh(self) -> Tpsa:
+        """Return the hyperbolic sine of this series."""
+        return self._unary_op("mad_tpsa_sinh")
+
+    def cosh(self) -> Tpsa:
+        """Return the hyperbolic cosine of this series."""
+        return self._unary_op("mad_tpsa_cosh")
+
+    def tanh(self) -> Tpsa:
+        """Return the hyperbolic tangent of this series."""
+        return self._unary_op("mad_tpsa_tanh")
+
+    def sinhc(self) -> Tpsa:
+        """Return ``sinh(x) / x`` for this series, with MAD-NG's regularisation at zero."""
+        return self._unary_op("mad_tpsa_sinhc")
+
     def asinh(self) -> Tpsa:
         """Return the inverse hyperbolic sine of this series."""
         return self._unary_op("mad_tpsa_asinh")
@@ -314,6 +342,65 @@ class Tpsa:
     def atanh(self) -> Tpsa:
         """Return the inverse hyperbolic tangent of this series."""
         return self._unary_op("mad_tpsa_atanh")
+
+    def sincosh(self) -> tuple[Tpsa, Tpsa]:
+        """Return ``(sinh(x), cosh(x))`` for this series."""
+        return self._pair_op("mad_tpsa_sincosh")
+
+    def sincoshq(self) -> tuple[Tpsa, Tpsa]:
+        """Return ``(sinhc(sqrt(x)), cosh(sqrt(x)))`` for this series."""
+        return self._pair_op("mad_tpsa_sincoshq")
+
+    def sincoshmq(self) -> tuple[Tpsa, Tpsa]:
+        """Return ``((sinhc(sqrt(x)) - 1) / x, (cosh(sqrt(x)) - 1) / x)``."""
+        return self._pair_op("mad_tpsa_sincoshmq")
+
+    def erf(self) -> Tpsa:
+        """Return the error function of this series."""
+        return self._unary_op("mad_tpsa_erf")
+
+    def erfc(self) -> Tpsa:
+        """Return the complementary error function of this series."""
+        return self._unary_op("mad_tpsa_erfc")
+
+    def erfcx(self) -> Tpsa:
+        """Return the scaled complementary error function of this series."""
+        return self._unary_op("mad_tpsa_erfcx")
+
+    def erfi(self) -> Tpsa:
+        """Return the imaginary error function of this series."""
+        return self._unary_op("mad_tpsa_erfi")
+
+    def wofz(self) -> Tpsa:
+        """Return the real-valued Faddeeva function for this series.
+
+        MAD-NG names this operation ``wf``. For real TPSAs, it returns the real
+        part of SciPy's complex-valued ``scipy.special.wofz``. The imaginary
+        part is not represented by this API.
+        """
+        return self._unary_op("mad_tpsa_wf")
+
+    def atan2(self, other: Tpsa | float) -> Tpsa:
+        """Return ``atan2(self, other)``."""
+        other = self._coerce_operand(other)
+        result = self.descriptor.zero()
+        lib().mad_tpsa_atan2(self._ptr, other._ptr, result._ptr)
+        return result
+
+    def hypot(self, other: Tpsa | float) -> Tpsa:
+        """Return ``sqrt(self**2 + other**2)``."""
+        other = self._coerce_operand(other)
+        result = self.descriptor.zero()
+        lib().mad_tpsa_hypot(self._ptr, other._ptr, result._ptr)
+        return result
+
+    def hypot3(self, other: Tpsa | float, third: Tpsa | float) -> Tpsa:
+        """Return ``sqrt(self**2 + other**2 + third**2)``."""
+        other = self._coerce_operand(other)
+        third = self._coerce_operand(third)
+        result = self.descriptor.zero()
+        lib().mad_tpsa_hypot3(self._ptr, other._ptr, third._ptr, result._ptr)
+        return result
 
     def __array_ufunc__(self, ufunc: Any, method: str, *inputs: Any, **kwargs: Any) -> Any:
         """Map supported NumPy ufunc calls to the matching TPSA operations."""
@@ -357,4 +444,17 @@ _UFUNC_DISPATCH = {
     np.multiply: lambda left, right: left * right,
     np.divide: lambda left, right: left / right,
     np.power: lambda left, right: left**right,
+    np.atan2: lambda left, right: (
+        left.atan2(right)
+        if isinstance(left, Tpsa)
+        else right.descriptor.constant(float(left)).atan2(right)
+    ),
+    np.hypot: lambda left, right: (
+        left.hypot(right) if isinstance(left, Tpsa) else right.hypot(left)
+    ),
+    scipy.special.erf: Tpsa.erf,
+    scipy.special.erfc: Tpsa.erfc,
+    scipy.special.erfcx: Tpsa.erfcx,
+    scipy.special.erfi: Tpsa.erfi,
+    scipy.special.wofz: Tpsa.wofz,
 }

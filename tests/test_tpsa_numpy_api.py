@@ -4,6 +4,7 @@ import math
 
 import numpy as np
 import pytest
+import scipy.special
 
 import xgtpsa
 
@@ -88,6 +89,24 @@ def test_selected_math_derivatives():
 
 
 @pytest.mark.parametrize(
+    ("method_name", "special_func", "value", "expected"),
+    [
+        ("erf", scipy.special.erf, 0.5, scipy.special.erf(0.5)),
+        ("erfc", scipy.special.erfc, 0.5, scipy.special.erfc(0.5)),
+        ("erfcx", scipy.special.erfcx, 0.5, scipy.special.erfcx(0.5)),
+        ("erfi", scipy.special.erfi, 0.5, scipy.special.erfi(0.5)),
+        ("wofz", scipy.special.wofz, 0.5, scipy.special.wofz(0.5).real),
+    ],
+)
+def test_scipy_special_methods_and_ufuncs(method_name, special_func, value, expected):
+    t = _constant(value)
+    method_result = getattr(t, method_name)()
+
+    assert method_result.const_part == pytest.approx(expected)
+    assert special_func(t) == method_result
+
+
+@pytest.mark.parametrize(
     ("numpy_func", "left", "right", "expected"),
     [
         (np.add, "x", 3.0, 5.0),
@@ -95,6 +114,8 @@ def test_selected_math_derivatives():
         (np.multiply, "x", 3.0, 6.0),
         (np.divide, 6.0, "x", 3.0),
         (np.power, "x", 3, 8.0),
+        (np.atan2, "x", 3.0, math.atan2(2.0, 3.0)),
+        (np.hypot, "x", 3.0, math.hypot(2.0, 3.0)),
     ],
 )
 def test_numpy_binary_ufuncs(numpy_func, left, right, expected):
@@ -105,6 +126,13 @@ def test_numpy_binary_ufuncs(numpy_func, left, right, expected):
     right_arg = x if right == "x" else right
 
     assert numpy_func(left_arg, right_arg).const_part == pytest.approx(expected)
+
+
+def test_hypot3_method():
+    d = xgtpsa.Descriptor(1, 3)
+    x = d.var(1, 2.0)
+
+    assert x.hypot3(3.0, 6.0).const_part == pytest.approx(7.0)
 
 
 @pytest.mark.parametrize(
