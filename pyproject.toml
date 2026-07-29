@@ -20,6 +20,8 @@ requires-python = ">=3.11"
 dependencies = [
     "cffi",
     "numpy",
+    "scipy",
+    "rich",
 ]
 
 [dependency-groups]
@@ -52,6 +54,9 @@ build_info = "xgtpsa.xobjects_hook:get_build_info"
 [tool.ruff]
 exclude = ["madng"]
 line-length = 100
+
+[tool.ruff.format]
+quote-style = "single"
 
 [tool.ruff.lint]
 extend-select = [

@@ -10,26 +10,26 @@ import os
 import sys
 from pathlib import Path
 
-LIB_BASENAME = "madng_tpsa"
+LIB_BASENAME = 'madng_tpsa'
 _PKG = Path(__file__).resolve().parent
-_LIB = _PKG / "lib"
-_INCLUDE = _PKG / "include"
+_LIB = _PKG / 'lib'
+_INCLUDE = _PKG / 'include'
 
 
 def _library_name() -> str:
     """Return the canonical name of the shared object file for the current platform."""
     match sys.platform:
-        case "darwin":
-            return f"lib{LIB_BASENAME}.dylib"
-        case "linux":
-            return f"lib{LIB_BASENAME}.so"
+        case 'darwin':
+            return f'lib{LIB_BASENAME}.dylib'
+        case 'linux':
+            return f'lib{LIB_BASENAME}.so'
 
-    raise RuntimeError(f"Platform {sys.platform} not supported for Xgtpsa")
+    raise RuntimeError(f'Platform {sys.platform} not supported for Xgtpsa')
 
 
 def _base() -> str | None:
     """The directory an env override points at (a file's dirname is fine), or None."""
-    p = os.environ.get("XGTPSA_LIB")
+    p = os.environ.get('XGTPSA_LIB')
     if not p:
         return None
     path = Path(p)
@@ -48,7 +48,7 @@ def lib_dir() -> str:
 
     if not path_to_so.exists():
         raise RuntimeError(
-            f"GTPSA library {path_to_so} does not exist. Was the package built correctly?"
+            f'GTPSA library {path_to_so} does not exist. Was the package built correctly?'
         )
 
     return str(_LIB)
@@ -56,11 +56,11 @@ def lib_dir() -> str:
 
 def include_dir() -> str:
     """Directory holding the public MAD-NG GTPSA headers."""
-    test_file = "mad_tpsa.hpp"
+    test_file = 'mad_tpsa.hpp'
 
     if not (_INCLUDE / test_file).exists():
         raise RuntimeError(
-            f"GTPSA include headers not found in {_INCLUDE}. Was the package built correctly?"
+            f'GTPSA include headers not found in {_INCLUDE}. Was the package built correctly?'
         )
 
     return str(_INCLUDE)

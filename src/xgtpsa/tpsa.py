@@ -1,215 +1,614 @@
-"""Tpsa: one truncated power series over a ``Descriptor``."""
+"""Truncated power series objects."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from numbers import Integral, Real
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
+import scipy.special
 
 from . import _cffi
 from ._cffi import ffi, lib
-from .descriptor import Descriptor, _wrap_desc
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Iterable, Mapping, Sequence
 
-_DFLT = 255  # full descriptor order (mad_tpsa_dflt)
+    from .descriptor import Descriptor
+    from .formatting import PolynomialStyle
+
+Numeric = int | float
 
 
 class Tpsa:
-    """A single truncated power series over a given descriptor (thin handle)."""
+    """A truncated power series in the algebraic space defined by a descriptor."""
 
-    __slots__ = ("_p",)  # pointer to the C tpsa_t* (the series itself)
+    __slots__ = ('_descriptor', '_ptr')
 
-    def __init__(self, desc: Descriptor | None = None, ptr: Any = None) -> None:
-        """Create a new ``Tpsa``."""
-        if ptr is not None:
-            self._p = ptr
-        else:
-            if desc is None:
-                msg = "desc is required when ptr is not provided"
-                raise TypeError(msg)
-            self._p = lib().mad_tpsa_newd(desc.ptr, _DFLT)
+    def __init__(self, descriptor: Descriptor) -> None:
+        """Create a zero series on ``descriptor``."""
+        self._descriptor = descriptor
+        self._ptr = lib().mad_tpsa_newd(descriptor.ptr, lib().mad_tpsa_dflt)
+
+    @classmethod
+    def from_ptr(cls, ptr: Any, descriptor: Descriptor | None = None) -> Tpsa:
+        """Wrap an existing low-level TPSA pointer."""
+        if descriptor is None:
+            from .descriptor import Descriptor
+
+            descriptor = Descriptor.from_ptr(lib().mad_tpsa_desc(ptr))
+        t = cls.__new__(cls)
+        t._descriptor = descriptor
+        t._ptr = ptr
+        return t
 
     def __del__(self) -> None:
-        # Read the loaded handle directly: shutdown must not reload the library.
-        if getattr(self, "_p", None) is not None and _cffi._lib is not None:
-            _cffi._lib.mad_tpsa_del(self._p)
-            self._p = None
-
-    @classmethod
-    def var(cls, desc: Descriptor, iv: int, v: float = 0.0) -> Tpsa:
-        """Create identity variable ``iv`` on ``desc``.
-
-        The variable index starts from 1 and is expanded around value ``v``.
-        """
-        t = cls(desc)
-        lib().mad_tpsa_setvar(t._p, float(v), int(iv), 0.0)
-        return t
-
-    @classmethod
-    def param(cls, desc: Descriptor, ip: int, v: float = 0.0) -> Tpsa:
-        """Create identity parameter ``ip`` on ``desc``.
-
-        The parameter index starts from 1 and uses monomial slot
-        ``n_variables + ip - 1``. It is expanded around value ``v``.
-
-        The handle is created with ``mo=1`` (setprm requires it); parameters are
-        exact order-1 seeds, use them in arithmetic to build higher orders.
-        """
-        t = cls.__new__(cls)
-        t._p = lib().mad_tpsa_newd(desc.ptr, 1)
-        lib().mad_tpsa_setprm(t._p, float(v), int(ip))
-        return t
+        # The underlying object, or the library might have already been released,
+        # if not release the handle now.
+        if getattr(self, '_ptr', None) is not None and _cffi._lib is not None:
+            _cffi._lib.mad_tpsa_del(self._ptr)
+            self._ptr = None
 
     @property
     def ptr(self) -> Any:
-        """The raw ``tpsa_t*`` (for consumers marshalling it across an ABI)."""
-        return self._p
+        """Low-level TPSA pointer for consumers marshalling across an ABI."""
+        return self._ptr
 
     @property
     def descriptor(self) -> Descriptor:
-        """The ``Descriptor`` this series lives on (queried from C)."""
-        return _wrap_desc(lib().mad_tpsa_desc(self._p))
+        """Descriptor that defines this series' variables, parameters, and order."""
+        return self._descriptor
 
     @property
     def order(self) -> int:
-        """This series' max order (queried from C)."""
-        return lib().mad_tpsa_ord(self._p, False)  # noqa: FBT003
+        """Maximum order stored by this series."""
+        return lib().mad_tpsa_ord(self._ptr, False)  # noqa: FBT003
 
     @property
     def const_part(self) -> float:
-        """The constant part (zero-order coefficient) of the series."""
-        return lib().mad_tpsa_geti(self._p, 0)
+        """Constant coefficient of the series."""
+        return lib().mad_tpsa_geti(self._ptr, 0)
 
     def get(self, monomial: Iterable[int]) -> float:
-        """Coefficient of ``monomial`` (iterable of per-variable orders)."""
-        m = [int(x) for x in monomial]
-        arr = ffi().new("unsigned char[]", m)
-        return lib().mad_tpsa_getm(self._p, len(m), arr)
+        """Return the coefficient for ``monomial``."""
+        monomial_orders = list(monomial)
+        monomial_arr = ffi().new('unsigned char[]', monomial_orders)
+        return lib().mad_tpsa_getm(self._ptr, len(monomial_orders), monomial_arr)
 
-    def set_const_part(self, v: float) -> None:
-        """Set the constant part (zero-order coefficient) of the series."""
-        lib().mad_tpsa_seti(self._p, 0, 0.0, float(v))
+    def set_const_part(self, v: Numeric) -> None:
+        """Set the constant coefficient."""
+        lib().mad_tpsa_seti(self._ptr, 0, 0.0, float(v))
 
-    def set(self, monomial: Iterable[int], v: float) -> None:
-        """Set the coefficient of ``monomial`` to ``v``."""
-        m = [int(x) for x in monomial]
-        arr = ffi().new("unsigned char[]", m)
-        lib().mad_tpsa_setm(self._p, len(m), arr, 0.0, float(v))
+    def set(self, monomial: Iterable[int], value: Numeric) -> None:
+        """Set the coefficient for ``monomial``."""
+        monomial_orders = list(monomial)
+        monomial_arr = ffi().new('unsigned char[]', monomial_orders)
+        lib().mad_tpsa_setm(self._ptr, len(monomial_orders), monomial_arr, 0.0, float(value))
+
+    def __getitem__(self, monomial: Iterable[int]) -> float:
+        return self.get(monomial)
+
+    def __setitem__(self, monomial: Iterable[int], value: Numeric) -> None:
+        self.set(monomial, value)
 
     def coefficient(
         self, monomials: Sequence[int] | Sequence[Sequence[int]] | np.ndarray
     ) -> float | np.ndarray:
-        """Coefficient(s) for one monomial or several.
+        """Return coefficients for one monomial or a batch of monomials.
 
-        A monomial is a length-``nv`` tuple of per-variable orders, the same
-        shape ``monomial_coeffs`` returns as keys. ``monomials`` is either one
-        such monomial (-> a ``float``) or an iterable of them, e.g. a list of
-        tuples or an ``(N, nv)`` array (-> a length-``N`` ``numpy`` array).
-        Arrays are accepted and converted to tuples internally.
+        A monomial gives the exponent for each variable and parameter in the
+        descriptor. A one-dimensional input returns one float. A two-dimensional
+        input returns a NumPy array with one coefficient per row.
         """
-        m = np.asarray(monomials, dtype=int)
-        if m.ndim == 1:
-            return self.get(tuple(m))
-        if m.ndim == 2:
-            return np.array([self.get(tuple(row)) for row in m])
-        raise ValueError("monomials must be one monomial (nv,) or several (N, nv)")
+        monomial_arr = np.asarray(monomials, dtype=int)
+        if monomial_arr.ndim == 1:
+            return self.get(tuple(monomial_arr))
+        if monomial_arr.ndim == 2:
+            return np.array([self.get(tuple(row)) for row in monomial_arr])
+        raise ValueError('monomials must be one monomial or a two-dimensional batch')
 
-    def monomial_coeffs(self, tol: float = 1e-14) -> dict[tuple[int, ...], float]:
-        """All coefficients with ``|c| > tol`` as ``{monomial_tuple: coefficient}``.
+    def monomial_coeffs(self, tol: Numeric = 1e-14) -> dict[tuple[int, ...], float]:
+        """Return stored coefficients larger than ``tol`` in absolute value.
 
-        Enumerates only the stored (nonzero) terms via ``mad_tpsa_cycle``.
-        Monomials are full length ``n_variables + n_parameters``.
+        Keys are full monomial tuples with one entry per variable and parameter.
         """
-        n = self.descriptor.monomial_length
-        m = ffi().new("unsigned char[]", n)
-        v = ffi().new("double*")
-        out = {}
+        monomial_len = self.descriptor.monomial_length
+        monomial_arr = ffi().new('unsigned char[]', monomial_len)
+        coeff_ptr = ffi().new('double*')
+        coeffs: dict[tuple[int, ...], float] = {}
+
         i = -1
-        while (i := lib().mad_tpsa_cycle(self._p, i, n, m, v)) >= 0:
-            if abs(v[0]) > tol:
-                out[tuple(m[j] for j in range(n))] = v[0]
-        return out
+        while (i := lib().mad_tpsa_cycle(self._ptr, i, monomial_len, monomial_arr, coeff_ptr)) >= 0:
+            coefficient = coeff_ptr[0]
+            if abs(coefficient) <= tol:
+                continue
+            monomial = tuple(monomial_arr)
+            coeffs[monomial] = coefficient
+
+        return coeffs
+
+    def to_dict(self, tol: Numeric = 1e-14) -> dict[tuple[int, ...], float]:
+        """Return this series as a monomial-to-coefficient dictionary."""
+        return self.monomial_coeffs(tol=tol)
+
+    def from_dict(self, coefficients: Mapping[tuple[int, ...], Numeric]) -> None:
+        """Replace this series with coefficients from ``coefficients``.
+
+        Keys are full monomial exponent tuples with one entry per variable and
+        parameter. Existing coefficients are cleared before the new ones are set.
+        """
+        self.clear()
+        for monomial, coefficient in coefficients.items():
+            self.set(monomial, coefficient)
+
+    def is_zero(self) -> bool:
+        """Return whether this series has no non-zero coefficients."""
+        return bool(lib().mad_tpsa_isnul(self._ptr))
+
+    def is_constant(self) -> bool:
+        """Return whether this series has no non-constant coefficients."""
+        return bool(lib().mad_tpsa_isval(self._ptr))
+
+    def clear(self) -> None:
+        """Set all coefficients to zero in place."""
+        lib().mad_tpsa_clear(self._ptr)
 
     def grad(self) -> list[float]:
-        """Order-1 coefficients, one per variable."""
-        n = self.descriptor.n_variables
-        g = []
-        for j in range(n):
-            mono = [0] * n
-            mono[j] = 1
-            g.append(self.get(mono))
-        return g
+        """First-order coefficients for the descriptor variables."""
+        num_vars = self.descriptor.num_vars
+        grad = []
+        for var_idx in range(num_vars):
+            monomial = [0] * num_vars
+            monomial[var_idx] = 1
+            grad.append(self.get(monomial))
+        return grad
 
     def param_grad(self) -> list[float]:
-        """Order-1 coefficients (d out / d param_j), one per parameter."""
-        nv, _, np_, _ = self.descriptor._getnv()
-        g = []
-        for j in range(np_):
-            mono = [0] * (nv + np_)
-            mono[nv + j] = 1
-            g.append(self.get(mono))
-        return g
+        """First-order coefficients for the descriptor parameters."""
+        attrs = self.descriptor._get_descriptor_attrs()
+        monomial_len = attrs.num_vars + attrs.num_params
+        param_grad = []
+        for param_idx in range(attrs.num_params):
+            monomial = [0] * monomial_len
+            monomial[attrs.num_vars + param_idx] = 1
+            param_grad.append(self.get(monomial))
+        return param_grad
+
+    def copy(self) -> Tpsa:
+        """Return an independent copy of this series."""
+        result = self.descriptor.zero()
+        lib().mad_tpsa_copy(self._ptr, result._ptr)
+        return result
+
+    def integrate(self, variable: int | str | Tpsa) -> Tpsa:
+        """Return the formal integral with respect to ``variable``.
+
+        Parameters
+        ----------
+        variable
+            May be a label, a 1-based variable/parameter index, or a TPSA identity
+            variable with exactly one first-order monomial of coefficient 1.
+        """
+        variable_index = self._variable_index(variable)
+        result = self.descriptor.zero()
+        lib().mad_tpsa_integ(self._ptr, result._ptr, variable_index)
+        return result
+
+    def derivative(self, variable: int | str | tuple[int, ...] | Tpsa) -> Tpsa:
+        """Return a partial derivative with respect to ``variable``.
+
+        Parameters
+        ----------
+        variable
+            May be a label, a 1-based variable/parameter index, a derivative
+            monomial tuple, or a TPSA with exactly one non-constant monomial. Passing
+            a monomial requests a higher or mixed derivative.
+        """
+        result = self.descriptor.zero()
+
+        if isinstance(variable, tuple):
+            monomial = self._derivative_monomial(variable)
+            monomial_arr = ffi().new('unsigned char[]', monomial)
+            lib().mad_tpsa_derivm(self._ptr, result._ptr, len(monomial), monomial_arr)
+            return result
+
+        if isinstance(variable, Tpsa):
+            self._check_compatible(variable)
+            variable_index = lib().xgtpsa_tpsa_variable_index(variable._ptr)
+            if variable_index >= 1:
+                lib().mad_tpsa_deriv(self._ptr, result._ptr, variable_index)
+                return result
+
+            monomial = self._derivative_monomial(variable)
+            monomial_arr = ffi().new('unsigned char[]', monomial)
+            lib().mad_tpsa_derivm(self._ptr, result._ptr, len(monomial), monomial_arr)
+            return result
+
+        variable_index = self._variable_index(variable)
+        lib().mad_tpsa_deriv(self._ptr, result._ptr, variable_index)
+        return result
+
+    def poisson_bracket(self, other: Tpsa, num_pairs: Literal['all'] | int = 'all') -> Tpsa:
+        """Return the Poisson bracket with ``other`` over canonical variable pairs."""
+        self._check_compatible(other)
+
+        if num_pairs == 'all':
+            c_num_vars = 0
+        else:
+            if not isinstance(num_pairs, int) or isinstance(num_pairs, bool):
+                raise ValueError("num_pairs must be 'all' or an integer")
+            c_num_vars = 2 * int(num_pairs)
+            if not 0 < c_num_vars <= self.descriptor.num_vars:
+                raise ValueError(
+                    f'num_pairs must satisfy 0 < 2 * num_pairs <= {self.descriptor.num_vars}'
+                )
+
+        result = self.descriptor.zero()
+        lib().mad_tpsa_poisbra(self._ptr, other._ptr, result._ptr, c_num_vars)
+        return result
+
+    def __repr__(self):
+        return f'Tpsa({self.to_dict()!r})'
+
+    def format(self, style: PolynomialStyle = 'code') -> object:
+        """Format this series as code, LaTeX math, or a rich table."""
+        return self.descriptor.format_polynomial(self, style=style)
 
     # --- arithmetic (fresh result on the same descriptor; scalars mix freely) --- #
 
-    def _new_like(self) -> Tpsa:
-        return Tpsa(self.descriptor)
-
     def _binop(self, other: Tpsa, fn: str) -> Tpsa:
-        r = self._new_like()
-        getattr(lib(), fn)(self._p, other._p, r._p)
-        return r
+        self._check_compatible(other)
+        result = self.descriptor.zero()
+        getattr(lib(), fn)(self._ptr, other._ptr, result._ptr)
+        return result
 
-    def __add__(self, other: Tpsa | float) -> Tpsa:
+    def _coerce_operand(self, other: Tpsa | Numeric) -> Tpsa:
         if isinstance(other, Tpsa):
-            return self._binop(other, "mad_tpsa_add")
-        r = self._new_like()
-        lib().mad_tpsa_axpb(1.0, self._p, float(other), r._p)
-        return r
+            self._check_compatible(other)
+            return other
+        return self.descriptor.constant(float(other))
+
+    def _unary_op(self, fn: str) -> Tpsa:
+        result = self.descriptor.zero()
+        getattr(lib(), fn)(self._ptr, result._ptr)
+        return result
+
+    def _pair_op(self, fn: str) -> tuple[Tpsa, Tpsa]:
+        first = self.descriptor.zero()
+        second = self.descriptor.zero()
+        getattr(lib(), fn)(self._ptr, first._ptr, second._ptr)
+        return first, second
+
+    def _check_compatible(self, other: Tpsa) -> None:
+        """Raise if ``other`` cannot be combined with this series."""
+        if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
+            raise ValueError('Incompatible TPSA descriptors')
+
+    def _variable_index(self, variable: int | str | Tpsa) -> int:
+        """Return a validated 1-based variable/parameter index."""
+        if isinstance(variable, Tpsa):
+            self._check_compatible(variable)
+            variable_index = lib().xgtpsa_tpsa_variable_index(variable._ptr)
+            if variable_index < 0:
+                raise ValueError('Variable must be a TPSA identity variable with coefficient 1')
+            return variable_index
+
+        variable_index = self.descriptor.variable_index(variable)
+        monomial_length = self.descriptor.monomial_length
+        if not 1 <= variable_index <= monomial_length:
+            raise ValueError(f'Variable index must be in [1, monomial_length={monomial_length}]')
+        return variable_index
+
+    def _derivative_monomial(self, variable: tuple[int, ...] | Tpsa) -> list[int]:
+        """Return a validated higher-derivative monomial."""
+        if isinstance(variable, Tpsa):
+            self._check_compatible(variable)
+            monomial_arr = ffi().new('unsigned char[]', self.descriptor.monomial_length)
+            if not lib().xgtpsa_tpsa_single_monomial(
+                variable._ptr, self.descriptor.monomial_length, monomial_arr
+            ):
+                raise ValueError('Derivative TPSA must contain exactly one non-constant monomial')
+            monomial = list(monomial_arr)
+        else:
+            monomial = [int(order) for order in variable]
+
+        monomial_length = self.descriptor.monomial_length
+        if len(monomial) != monomial_length:
+            raise ValueError(f'derivative monomial must have length {monomial_length}')
+        if sum(monomial) == 0:
+            raise ValueError('derivative monomial must have positive order')
+        if not self.descriptor.is_valid_monomial(monomial):
+            raise ValueError('derivative monomial is not valid for this descriptor')
+        return monomial
+
+    def equals(self, other: Tpsa, tol: Numeric = 0.0) -> bool:
+        """Return whether this series and ``other`` have matching coefficients."""
+        if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
+            return False
+        return bool(lib().mad_tpsa_equ(self._ptr, other._ptr, float(tol)))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Tpsa):
+            return False
+        return self.equals(other)
+
+    def __add__(self, other: Tpsa | Numeric) -> Tpsa:
+        if isinstance(other, Tpsa):
+            return self._binop(other, 'mad_tpsa_add')
+        result = self.descriptor.zero()
+        lib().mad_tpsa_axpb(1.0, self._ptr, float(other), result._ptr)
+        return result
 
     __radd__ = __add__
 
-    def __sub__(self, other: Tpsa | float) -> Tpsa:
+    def __sub__(self, other: Tpsa | Numeric) -> Tpsa:
         if isinstance(other, Tpsa):
-            return self._binop(other, "mad_tpsa_sub")
+            return self._binop(other, 'mad_tpsa_sub')
         return self.__add__(-float(other))
 
-    def __rsub__(self, other: float) -> Tpsa:
-        r = self._new_like()
-        lib().mad_tpsa_axpb(-1.0, self._p, float(other), r._p)
-        return r
+    def __rsub__(self, other: Numeric) -> Tpsa:
+        result = self.descriptor.zero()
+        lib().mad_tpsa_axpb(-1.0, self._ptr, float(other), result._ptr)
+        return result
 
-    def __mul__(self, other: Tpsa | float) -> Tpsa:
+    def __mul__(self, other: Tpsa | Numeric) -> Tpsa:
         if isinstance(other, Tpsa):
-            return self._binop(other, "mad_tpsa_mul")
-        r = self._new_like()
-        lib().mad_tpsa_scl(self._p, float(other), r._p)
-        return r
+            return self._binop(other, 'mad_tpsa_mul')
+        result = self.descriptor.zero()
+        lib().mad_tpsa_scl(self._ptr, float(other), result._ptr)
+        return result
 
     __rmul__ = __mul__
 
-    def __truediv__(self, other: Tpsa | float) -> Tpsa:
+    def __truediv__(self, other: Tpsa | Numeric) -> Tpsa:
         if isinstance(other, Tpsa):
-            return self._binop(other, "mad_tpsa_div")
-        return self.__mul__(1.0 / float(other))
+            return self._binop(other, 'mad_tpsa_div')
+        result = self.descriptor.zero()
+        lib().mad_tpsa_divn(self._ptr, float(other), result._ptr)
+        return result
 
-    def __rtruediv__(self, other: float) -> Tpsa:
-        r = self._new_like()
-        lib().mad_tpsa_inv(self._p, float(other), r._p)
-        return r
+    def __rtruediv__(self, other: Numeric) -> Tpsa:
+        result = self.descriptor.zero()
+        lib().mad_tpsa_inv(self._ptr, float(other), result._ptr)
+        return result
 
-    def __pow__(self, other: int | float) -> Tpsa:
-        r = self._new_like()
-        lib().mad_tpsa_pown(self._p, float(other), r._p)
-        return r
+    def __pow__(self, other: Tpsa | Numeric) -> Tpsa:
+        result = self.descriptor.zero()
+        if isinstance(other, Tpsa):
+            if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
+                raise ValueError('Incompatible TPSA descriptors')
+            lib().mad_tpsa_pow(self._ptr, other._ptr, result._ptr)
+        elif isinstance(other, Integral):
+            lib().mad_tpsa_powi(self._ptr, int(other), result._ptr)
+        elif isinstance(other, Real):
+            lib().mad_tpsa_pown(self._ptr, float(other), result._ptr)
+        else:
+            return NotImplemented
+        return result
+
+    def __rpow__(self, other: Numeric) -> Tpsa:
+        result = self * float(np.log(other))
+        lib().mad_tpsa_exp(result._ptr, result._ptr)
+        return result
 
     def __neg__(self) -> Tpsa:
-        return self.__mul__(-1.0)
+        return self * -1.0
 
-    def copy(self) -> Tpsa:
-        """Return a copy of this series."""
-        r = self._new_like()
-        lib().mad_tpsa_copy(self._p, r._p)
-        return r
+    def __pos__(self) -> Tpsa:
+        return self.copy()
+
+    def __abs__(self) -> Tpsa:
+        return self.abs()
+
+    def __float__(self) -> float:
+        return self.const_part
+
+    def abs(self) -> Tpsa:
+        """Return the TPSA absolute value determined by the constant coefficient."""
+        return self._unary_op('mad_tpsa_abs')
+
+    def norm(self) -> float:
+        """Return the sum of absolute values of the stored coefficients."""
+        return lib().mad_tpsa_nrm(self._ptr)
+
+    def unit(self) -> Tpsa:
+        """Return this series divided by the magnitude of its constant coefficient."""
+        if self.const_part == 0.0:
+            raise ZeroDivisionError('Cannot normalize a TPSA with zero constant part')
+        return self._unary_op('mad_tpsa_unit')
+
+    def sqrt(self) -> Tpsa:
+        """Return the square root of this series."""
+        return self._unary_op('mad_tpsa_sqrt')
+
+    def exp(self) -> Tpsa:
+        """Return the exponential of this series."""
+        return self._unary_op('mad_tpsa_exp')
+
+    def log(self) -> Tpsa:
+        """Return the natural logarithm of this series."""
+        return self._unary_op('mad_tpsa_log')
+
+    def sin(self) -> Tpsa:
+        """Return the sine of this series."""
+        return self._unary_op('mad_tpsa_sin')
+
+    def cos(self) -> Tpsa:
+        """Return the cosine of this series."""
+        return self._unary_op('mad_tpsa_cos')
+
+    def tan(self) -> Tpsa:
+        """Return the tangent of this series."""
+        return self._unary_op('mad_tpsa_tan')
+
+    def sinc(self) -> Tpsa:
+        """Return ``sin(x) / x`` for this series, with MAD-NG's regularisation at zero."""
+        return self._unary_op('mad_tpsa_sinc')
+
+    def asin(self) -> Tpsa:
+        """Return the inverse sine of this series."""
+        return self._unary_op('mad_tpsa_asin')
+
+    def acos(self) -> Tpsa:
+        """Return the inverse cosine of this series."""
+        return self._unary_op('mad_tpsa_acos')
+
+    def atan(self) -> Tpsa:
+        """Return the inverse tangent of this series."""
+        return self._unary_op('mad_tpsa_atan')
+
+    def sincos(self) -> tuple[Tpsa, Tpsa]:
+        """Return ``(sin(x), cos(x))`` for this series."""
+        return self._pair_op('mad_tpsa_sincos')
+
+    def sincosq(self) -> tuple[Tpsa, Tpsa]:
+        """Return ``(sinc(sqrt(x)), cos(sqrt(x)))`` for this series."""
+        return self._pair_op('mad_tpsa_sincosq')
+
+    def sincosmq(self) -> tuple[Tpsa, Tpsa]:
+        """Return ``((sinc(sqrt(x)) - 1) / x, (cos(sqrt(x)) - 1) / x)``."""
+        return self._pair_op('mad_tpsa_sincosmq')
+
+    def sinh(self) -> Tpsa:
+        """Return the hyperbolic sine of this series."""
+        return self._unary_op('mad_tpsa_sinh')
+
+    def cosh(self) -> Tpsa:
+        """Return the hyperbolic cosine of this series."""
+        return self._unary_op('mad_tpsa_cosh')
+
+    def tanh(self) -> Tpsa:
+        """Return the hyperbolic tangent of this series."""
+        return self._unary_op('mad_tpsa_tanh')
+
+    def sinhc(self) -> Tpsa:
+        """Return ``sinh(x) / x`` for this series, with MAD-NG's regularisation at zero."""
+        return self._unary_op('mad_tpsa_sinhc')
+
+    def asinh(self) -> Tpsa:
+        """Return the inverse hyperbolic sine of this series."""
+        return self._unary_op('mad_tpsa_asinh')
+
+    def acosh(self) -> Tpsa:
+        """Return the inverse hyperbolic cosine of this series."""
+        return self._unary_op('mad_tpsa_acosh')
+
+    def atanh(self) -> Tpsa:
+        """Return the inverse hyperbolic tangent of this series."""
+        return self._unary_op('mad_tpsa_atanh')
+
+    def sincosh(self) -> tuple[Tpsa, Tpsa]:
+        """Return ``(sinh(x), cosh(x))`` for this series."""
+        return self._pair_op('mad_tpsa_sincosh')
+
+    def sincoshq(self) -> tuple[Tpsa, Tpsa]:
+        """Return ``(sinhc(sqrt(x)), cosh(sqrt(x)))`` for this series."""
+        return self._pair_op('mad_tpsa_sincoshq')
+
+    def sincoshmq(self) -> tuple[Tpsa, Tpsa]:
+        """Return ``((sinhc(sqrt(x)) - 1) / x, (cosh(sqrt(x)) - 1) / x)``."""
+        return self._pair_op('mad_tpsa_sincoshmq')
+
+    def erf(self) -> Tpsa:
+        """Return the error function of this series."""
+        return self._unary_op('mad_tpsa_erf')
+
+    def erfc(self) -> Tpsa:
+        """Return the complementary error function of this series."""
+        return self._unary_op('mad_tpsa_erfc')
+
+    def erfcx(self) -> Tpsa:
+        """Return the scaled complementary error function of this series."""
+        return self._unary_op('mad_tpsa_erfcx')
+
+    def erfi(self) -> Tpsa:
+        """Return the imaginary error function of this series."""
+        return self._unary_op('mad_tpsa_erfi')
+
+    def wofz(self) -> Tpsa:
+        """Return the real-valued Faddeeva function for this series.
+
+        MAD-NG names this operation ``wf``. For real TPSAs, it returns the real
+        part of SciPy's complex-valued ``scipy.special.wofz``. The imaginary
+        part is not represented by this API.
+        """
+        return self._unary_op('mad_tpsa_wf')
+
+    def atan2(self, other: Tpsa | Numeric) -> Tpsa:
+        """Return ``atan2(self, other)``."""
+        other = self._coerce_operand(other)
+        result = self.descriptor.zero()
+        lib().mad_tpsa_atan2(self._ptr, other._ptr, result._ptr)
+        return result
+
+    def hypot(self, other: Tpsa | Numeric) -> Tpsa:
+        """Return ``sqrt(self**2 + other**2)``."""
+        other = self._coerce_operand(other)
+        result = self.descriptor.zero()
+        lib().mad_tpsa_hypot(self._ptr, other._ptr, result._ptr)
+        return result
+
+    def hypot3(self, other: Tpsa | Numeric, third: Tpsa | Numeric) -> Tpsa:
+        """Return ``sqrt(self**2 + other**2 + third**2)``."""
+        other = self._coerce_operand(other)
+        third = self._coerce_operand(third)
+        result = self.descriptor.zero()
+        lib().mad_tpsa_hypot3(self._ptr, other._ptr, third._ptr, result._ptr)
+        return result
+
+    def __array_ufunc__(self, ufunc: Any, method: str, *inputs: Any, **kwargs: Any) -> Any:
+        """Map supported NumPy ufunc calls to the matching TPSA operations."""
+        if method != '__call__' or kwargs:
+            return NotImplemented
+
+        if ufunc in _UFUNC_DISPATCH:
+            return _UFUNC_DISPATCH[ufunc](*inputs)
+        return NotImplemented
+
+    def __array_function__(
+        self, func: Any, types: tuple[type, ...], args: tuple[Any, ...], kwargs: dict[str, Any]
+    ) -> Any:
+        """Map supported NumPy functions to matching TPSA operations."""
+        if func is np.sinc and args == (self,) and not kwargs:
+            return (np.pi * self).sinc()
+        return NotImplemented
+
+
+_UFUNC_DISPATCH = {
+    np.absolute: Tpsa.abs,
+    np.sqrt: Tpsa.sqrt,
+    np.exp: Tpsa.exp,
+    np.log: Tpsa.log,
+    np.sin: Tpsa.sin,
+    np.cos: Tpsa.cos,
+    np.tan: Tpsa.tan,
+    np.sinh: Tpsa.sinh,
+    np.cosh: Tpsa.cosh,
+    np.tanh: Tpsa.tanh,
+    np.arcsin: Tpsa.asin,
+    np.arccos: Tpsa.acos,
+    np.arctan: Tpsa.atan,
+    np.arcsinh: Tpsa.asinh,
+    np.arccosh: Tpsa.acosh,
+    np.arctanh: Tpsa.atanh,
+    np.negative: Tpsa.__neg__,
+    np.positive: Tpsa.__pos__,
+    np.add: lambda left, right: left + right,
+    np.subtract: lambda left, right: left - right,
+    np.multiply: lambda left, right: left * right,
+    np.divide: lambda left, right: left / right,
+    np.power: lambda left, right: left**right,
+    np.atan2: lambda left, right: (
+        left.atan2(right)
+        if isinstance(left, Tpsa)
+        else right.descriptor.constant(float(left)).atan2(right)
+    ),
+    np.hypot: lambda left, right: (
+        left.hypot(right) if isinstance(left, Tpsa) else right.hypot(left)
+    ),
+    scipy.special.erf: Tpsa.erf,
+    scipy.special.erfc: Tpsa.erfc,
+    scipy.special.erfcx: Tpsa.erfcx,
+    scipy.special.erfi: Tpsa.erfi,
+    scipy.special.wofz: Tpsa.wofz,
+}
