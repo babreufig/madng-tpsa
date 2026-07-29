@@ -25,6 +25,19 @@ def test_vars_unpack_all_identity_seeds():
     assert py.grad() == [0, 0, 0, 1]
 
 
+def test_var_and_param_labels_can_seed_series():
+    d = xgtpsa.Descriptor(vars=['x', 'y'], order=2, params=['k'])
+    x = d.var('x', 0.5)
+    y = d.var('y')
+    k = d.param('k', 2.0)
+
+    assert x.const_part == 0.5
+    assert x.grad() == [1.0, 0.0]
+    assert y.grad() == [0.0, 1.0]
+    assert k.const_part == 2.0
+    assert k.param_grad() == [1.0]
+
+
 def test_vars_can_set_expansion_values():
     d = xgtpsa.Descriptor(2, 2)
     x, y = d.vars(values=[0.5, 2.0])
@@ -218,8 +231,10 @@ def test_set_and_get_coefficients():
     t = d.zero()
     t.set_const_part(1.5)
     t.set((1, 1), -2.0)
+    t[(2, 0)] = 3.0
     assert t.const_part == 1.5
     assert t.get((1, 1)) == -2.0
+    assert t[(2, 0)] == 3.0
     assert t.coefficient((1, 1)) == -2.0
     np.testing.assert_allclose(t.coefficient([(0, 0), (1, 1)]), [1.5, -2.0])
     with pytest.raises(ValueError):

@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
     from .descriptor import Descriptor
+    from .formatting import PolynomialStyle
 
 Numeric = int | float
 
@@ -22,17 +23,22 @@ Numeric = int | float
 class Tpsa:
     """A truncated power series in the algebraic space defined by a descriptor."""
 
-    __array_priority__ = 1000
-    __slots__ = ('_ptr',)  # pointer to the C tpsa_t* (the series itself)
+    __slots__ = ('_descriptor', '_ptr')
 
     def __init__(self, descriptor: Descriptor) -> None:
         """Create a zero series on ``descriptor``."""
+        self._descriptor = descriptor
         self._ptr = lib().mad_tpsa_newd(descriptor.ptr, lib().mad_tpsa_dflt)
 
     @classmethod
-    def from_ptr(cls, ptr: Any) -> Tpsa:
+    def from_ptr(cls, ptr: Any, descriptor: Descriptor | None = None) -> Tpsa:
         """Wrap an existing low-level TPSA pointer."""
+        if descriptor is None:
+            from .descriptor import Descriptor
+
+            descriptor = Descriptor.from_ptr(lib().mad_tpsa_desc(ptr))
         t = cls.__new__(cls)
+        t._descriptor = descriptor
         t._ptr = ptr
         return t
 
@@ -51,9 +57,7 @@ class Tpsa:
     @property
     def descriptor(self) -> Descriptor:
         """Descriptor that defines this series' variables, parameters, and order."""
-        from .descriptor import Descriptor
-
-        return Descriptor.from_ptr(lib().mad_tpsa_desc(self._ptr))
+        return self._descriptor
 
     @property
     def order(self) -> int:
@@ -80,6 +84,12 @@ class Tpsa:
         monomial_orders = list(monomial)
         monomial_arr = ffi().new('unsigned char[]', monomial_orders)
         lib().mad_tpsa_setm(self._ptr, len(monomial_orders), monomial_arr, 0.0, float(value))
+
+    def __getitem__(self, monomial: Iterable[int]) -> float:
+        return self.get(monomial)
+
+    def __setitem__(self, monomial: Iterable[int], value: Numeric) -> None:
+        self.set(monomial, value)
 
     def coefficient(
         self, monomials: Sequence[int] | Sequence[Sequence[int]] | np.ndarray
@@ -170,13 +180,13 @@ class Tpsa:
         lib().mad_tpsa_copy(self._ptr, result._ptr)
         return result
 
-    def integrate(self, variable: int | Tpsa) -> Tpsa:
+    def integrate(self, variable: int | str | Tpsa) -> Tpsa:
         """Return the formal integral with respect to ``variable``.
 
         Parameters
         ----------
         variable
-            May be a 1-based variable/parameter index or a TPSA identity
+            May be a label, a 1-based variable/parameter index, or a TPSA identity
             variable with exactly one first-order monomial of coefficient 1.
         """
         variable_index = self._variable_index(variable)
@@ -184,13 +194,13 @@ class Tpsa:
         lib().mad_tpsa_integ(self._ptr, result._ptr, variable_index)
         return result
 
-    def derivative(self, variable: int | tuple[int, ...] | Tpsa) -> Tpsa:
+    def derivative(self, variable: int | str | tuple[int, ...] | Tpsa) -> Tpsa:
         """Return a partial derivative with respect to ``variable``.
 
         Parameters
         ----------
         variable
-            May be a 1-based variable/parameter index, a derivative
+            May be a label, a 1-based variable/parameter index, a derivative
             monomial tuple, or a TPSA with exactly one non-constant monomial. Passing
             a monomial requests a higher or mixed derivative.
         """
@@ -240,6 +250,10 @@ class Tpsa:
     def __repr__(self):
         return f'Tpsa({self.to_dict()!r})'
 
+    def format(self, style: PolynomialStyle = 'code') -> object:
+        """Format this series as code, LaTeX math, or a rich table."""
+        return self.descriptor.format_polynomial(self, style=style)
+
     # --- arithmetic (fresh result on the same descriptor; scalars mix freely) --- #
 
     def _binop(self, other: Tpsa, fn: str) -> Tpsa:
@@ -270,7 +284,7 @@ class Tpsa:
         if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
             raise ValueError('Incompatible TPSA descriptors')
 
-    def _variable_index(self, variable: int | Tpsa) -> int:
+    def _variable_index(self, variable: int | str | Tpsa) -> int:
         """Return a validated 1-based variable/parameter index."""
         if isinstance(variable, Tpsa):
             self._check_compatible(variable)
@@ -279,7 +293,7 @@ class Tpsa:
                 raise ValueError('Variable must be a TPSA identity variable with coefficient 1')
             return variable_index
 
-        variable_index = int(variable)
+        variable_index = self.descriptor.variable_index(variable)
         monomial_length = self.descriptor.monomial_length
         if not 1 <= variable_index <= monomial_length:
             raise ValueError(f'Variable index must be in [1, monomial_length={monomial_length}]')
@@ -385,6 +399,9 @@ class Tpsa:
 
     def __abs__(self) -> Tpsa:
         return self.abs()
+
+    def __float__(self) -> float:
+        return self.const_part
 
     def abs(self) -> Tpsa:
         """Return the TPSA absolute value determined by the constant coefficient."""

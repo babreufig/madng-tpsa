@@ -18,6 +18,15 @@ def test_integrate_accepts_index_or_identity_variable():
     assert by_index.get((1, 1)) == pytest.approx(3.0)
 
 
+def test_integrate_accepts_labels():
+    d = xgtpsa.Descriptor(vars=['x', 'y'], order=3)
+    x, y = d.vars()
+    f = x * x + 3.0 * y
+
+    assert f.integrate('x') == f.integrate(x)
+    assert f.integrate('y') == f.integrate(y)
+
+
 def test_integrate_rejects_non_identity_tpsa_variable():
     d = xgtpsa.Descriptor(1, 2)
     x = d.var(1)
@@ -40,6 +49,18 @@ def test_derivative_accepts_index_identity_variable_tuple_or_single_monomial_tps
     monomial = d.zero()
     monomial.set((2, 1), 7.0)
     assert f.derivative(monomial) == mixed
+
+
+def test_derivative_accepts_labels():
+    d = xgtpsa.Descriptor(vars=['x', 'y'], order=3, params=['k'])
+    x = d.var('x')
+    y = d.var('y')
+    k = d.param('k')
+    f = x * x * y + 4.0 * k
+
+    assert f.derivative('x') == f.derivative(x)
+    assert f.derivative('y') == f.derivative(y)
+    assert f.derivative('k') == f.derivative(k)
 
 
 def test_derivative_rejects_invalid_monomials():

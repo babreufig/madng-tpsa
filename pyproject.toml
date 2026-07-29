@@ -21,6 +21,7 @@ dependencies = [
     "cffi",
     "numpy",
     "scipy",
+    "rich",
 ]
 
 [dependency-groups]
