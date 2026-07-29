@@ -176,7 +176,7 @@ constant part and propagating the truncated series terms.
 | `void mad_tpsa_sin(const tpsa_t *a, tpsa_t *c)` | Sine. |
 | `void mad_tpsa_cos(const tpsa_t *a, tpsa_t *c)` | Cosine. |
 | `void mad_tpsa_tan(const tpsa_t *a, tpsa_t *c)` | Tangent. |
-| `void mad_tpsa_sinc(const tpsa_t *a, tpsa_t *c)` | Unnormalized sinc, $\sin(x)/x$, with MAD-NG's regularization at zero. This differs from NumPy's normalized $\operatorname{sinc}(x) = \sin(\pi x)/(\pi x)$. |
+| `void mad_tpsa_sinc(const tpsa_t *a, tpsa_t *c)` | Unnormalized sinc, $\sin(x)/x$, with MAD-NG's regularization at zero. This differs from NumPy's normalized $\mathrm{sinc}(x) = \sin(\pi x)/(\pi x)$. |
 | `void mad_tpsa_sinh(const tpsa_t *a, tpsa_t *c)` | Hyperbolic sine. |
 | `void mad_tpsa_cosh(const tpsa_t *a, tpsa_t *c)` | Hyperbolic cosine. |
 | `void mad_tpsa_tanh(const tpsa_t *a, tpsa_t *c)` | Hyperbolic tangent. |
@@ -196,11 +196,11 @@ implementation, not only the comments, for the `sincos*` conventions.
 | Function | Description |
 | --- | --- |
 | `void mad_tpsa_sincos(const tpsa_t *a, tpsa_t *s, tpsa_t *c)` | Compute $(s, c) = (\sin(a), \cos(a))$. |
-| `void mad_tpsa_sincosq(const tpsa_t *a, tpsa_t *s, tpsa_t *c)` | Compute $(s, c) = (\operatorname{sinc}(\sqrt{a}), \cos(\sqrt{a}))$. |
-| `void mad_tpsa_sincosmq(const tpsa_t *a, tpsa_t *s, tpsa_t *c)` | Compute $(s, c) = ((\operatorname{sinc}(\sqrt{a}) - 1)/a, (\cos(\sqrt{a}) - 1)/a)$. |
+| `void mad_tpsa_sincosq(const tpsa_t *a, tpsa_t *s, tpsa_t *c)` | Compute $(s, c) = (\mathrm{sinc}(\sqrt{a}), \cos(\sqrt{a}))$. |
+| `void mad_tpsa_sincosmq(const tpsa_t *a, tpsa_t *s, tpsa_t *c)` | Compute $(s, c) = ((\mathrm{sinc}(\sqrt{a}) - 1)/a, (\cos(\sqrt{a}) - 1)/a)$. |
 | `void mad_tpsa_sincosh(const tpsa_t *a, tpsa_t *s, tpsa_t *c)` | Compute $(s, c) = (\sinh(a), \cosh(a))$. |
-| `void mad_tpsa_sincoshq(const tpsa_t *a, tpsa_t *s, tpsa_t *c)` | Compute $(s, c) = (\operatorname{sinhc}(\sqrt{a}), \cosh(\sqrt{a}))$. |
-| `void mad_tpsa_sincoshmq(const tpsa_t *a, tpsa_t *s, tpsa_t *c)` | Compute $(s, c) = ((\operatorname{sinhc}(\sqrt{a}) - 1)/a, (\cosh(\sqrt{a}) - 1)/a)$. |
+| `void mad_tpsa_sincoshq(const tpsa_t *a, tpsa_t *s, tpsa_t *c)` | Compute $(s, c) = (\mathrm{sinhc}(\sqrt{a}), \cosh(\sqrt{a}))$. |
+| `void mad_tpsa_sincoshmq(const tpsa_t *a, tpsa_t *s, tpsa_t *c)` | Compute $(s, c) = ((\mathrm{sinhc}(\sqrt{a}) - 1)/a, (\cosh(\sqrt{a}) - 1)/a)$. |
 
 ## Error and Faddeeva functions
 
@@ -211,15 +211,15 @@ intermediate results are projected back to a real TPSA.
 | --- | --- |
 | `void mad_tpsa_erf(const tpsa_t *a, tpsa_t *c)` | Error function. |
 | `void mad_tpsa_erfc(const tpsa_t *a, tpsa_t *c)` | Complementary error function. |
-| `void mad_tpsa_erfcx(const tpsa_t *a, tpsa_t *c)` | Scaled complementary error function, related to $\operatorname{wf}(ix)$. |
+| `void mad_tpsa_erfcx(const tpsa_t *a, tpsa_t *c)` | Scaled complementary error function, related to $\mathrm{wf}(ix)$. |
 | `void mad_tpsa_erfi(const tpsa_t *a, tpsa_t *c)` | Imaginary error function, implemented through a complex intermediate. |
-| `void mad_tpsa_wf(const tpsa_t *a, tpsa_t *c)` | Faddeeva function $w(z) = \exp(-z^2)\operatorname{erfc}(-iz)$. In xgtpsa this is exposed as `wofz`; for real TPSAs it returns the real part of SciPy's complex-valued `scipy.special.wofz`. |
+| `void mad_tpsa_wf(const tpsa_t *a, tpsa_t *c)` | Faddeeva function $w(z) = \exp(-z^2)\mathrm{erfc}(-iz)$. In xgtpsa this is exposed as `wofz`; for real TPSAs it returns the real part of SciPy's complex-valued `scipy.special.wofz`. |
 
 ## Binary and ternary math functions
 
 | Function | Description |
 | --- | --- |
-| `void mad_tpsa_atan2(const tpsa_t *y, const tpsa_t *x, tpsa_t *r)` | Compute $r = \operatorname{atan2}(y, x)$. xgtpsa lifts scalar operands to constant TPSAs before calling this. |
+| `void mad_tpsa_atan2(const tpsa_t *y, const tpsa_t *x, tpsa_t *r)` | Compute $r = \mathrm{atan2}(y, x)$. xgtpsa lifts scalar operands to constant TPSAs before calling this. |
 | `void mad_tpsa_hypot(const tpsa_t *x, const tpsa_t *y, tpsa_t *r)` | Compute $r = \sqrt{x^2 + y^2}$. |
 | `void mad_tpsa_hypot3(const tpsa_t *x, const tpsa_t *y, const tpsa_t *z, tpsa_t *r)` | Compute $r = \sqrt{x^2 + y^2 + z^2}$. |
 
