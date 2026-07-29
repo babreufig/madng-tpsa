@@ -90,8 +90,18 @@ CDEF = """
     void mad_tpsa_hypot(const void* x, const void* y, void* r);
     void mad_tpsa_hypot3(const void* x, const void* y, const void* z, void* r);
     void mad_tpsa_axpb(double a, const void* x, double b, void* r);
+    void mad_tpsa_integ(const void* a, void* c, int iv);
+    void mad_tpsa_deriv(const void* a, void* c, int iv);
+    void mad_tpsa_derivm(const void* a, void* c, int n, const unsigned char* m);
+    void mad_tpsa_poisbra(const void* a, const void* b, void* c, int nv);
 
-    int xgtpsa_check_tpsa_compatibility(const void* a, const void* b);
+    int xgtpsa_check_tpsa_compatibility(const void* left, const void* right);
+    int xgtpsa_tpsa_variable_index(const void* series);
+    int xgtpsa_tpsa_single_monomial(
+        const void* series,
+        int monomial_length,
+        unsigned char* monomial_orders
+    );
 """
 
 _ffi = cffi.FFI()

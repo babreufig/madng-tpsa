@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from numbers import Integral, Real
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import scipy.special
@@ -156,23 +156,87 @@ class Tpsa:
         lib().mad_tpsa_copy(self._ptr, result._ptr)
         return result
 
+    def integrate(self, variable: int | Tpsa) -> Tpsa:
+        """Return the formal integral with respect to ``variable``.
+
+        Parameters
+        ----------
+        variable
+            May be a 1-based variable/parameter index or a TPSA identity
+            variable with exactly one first-order monomial of coefficient 1.
+        """
+        variable_index = self._variable_index(variable)
+        result = self.descriptor.zero()
+        lib().mad_tpsa_integ(self._ptr, result._ptr, variable_index)
+        return result
+
+    def derivative(self, variable: int | tuple[int, ...] | Tpsa) -> Tpsa:
+        """Return a partial derivative with respect to ``variable``.
+
+        Parameters
+        ----------
+        variable
+            May be a 1-based variable/parameter index, a derivative
+            monomial tuple, or a TPSA with exactly one non-constant monomial. Passing
+            a monomial requests a higher or mixed derivative.
+        """
+        result = self.descriptor.zero()
+
+        if isinstance(variable, tuple):
+            monomial = self._derivative_monomial(variable)
+            monomial_arr = ffi().new('unsigned char[]', monomial)
+            lib().mad_tpsa_derivm(self._ptr, result._ptr, len(monomial), monomial_arr)
+            return result
+
+        if isinstance(variable, Tpsa):
+            self._check_compatible(variable)
+            variable_index = lib().xgtpsa_tpsa_variable_index(variable._ptr)
+            if variable_index >= 1:
+                lib().mad_tpsa_deriv(self._ptr, result._ptr, variable_index)
+                return result
+
+            monomial = self._derivative_monomial(variable)
+            monomial_arr = ffi().new('unsigned char[]', monomial)
+            lib().mad_tpsa_derivm(self._ptr, result._ptr, len(monomial), monomial_arr)
+            return result
+
+        variable_index = self._variable_index(variable)
+        lib().mad_tpsa_deriv(self._ptr, result._ptr, variable_index)
+        return result
+
+    def poisson_bracket(self, other: Tpsa, num_pairs: Literal['all'] | int = 'all') -> Tpsa:
+        """Return the Poisson bracket with ``other`` over canonical variable pairs."""
+        self._check_compatible(other)
+
+        if num_pairs == 'all':
+            c_num_vars = 0
+        else:
+            if not isinstance(num_pairs, int) or isinstance(num_pairs, bool):
+                raise ValueError("num_pairs must be 'all' or an integer")
+            c_num_vars = 2 * int(num_pairs)
+            if not 0 < c_num_vars <= self.descriptor.num_vars:
+                raise ValueError(
+                    f'num_pairs must satisfy 0 < 2 * num_pairs <= {self.descriptor.num_vars}'
+                )
+
+        result = self.descriptor.zero()
+        lib().mad_tpsa_poisbra(self._ptr, other._ptr, result._ptr, c_num_vars)
+        return result
+
     def __repr__(self):
         return f'Tpsa({self.to_dict()!r})'
 
     # --- arithmetic (fresh result on the same descriptor; scalars mix freely) --- #
 
     def _binop(self, other: Tpsa, fn: str) -> Tpsa:
-        if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
-            raise ValueError('Incompatible TPSA descriptors')
-
+        self._check_compatible(other)
         result = self.descriptor.zero()
         getattr(lib(), fn)(self._ptr, other._ptr, result._ptr)
         return result
 
     def _coerce_operand(self, other: Tpsa | float) -> Tpsa:
         if isinstance(other, Tpsa):
-            if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
-                raise ValueError('Incompatible TPSA descriptors')
+            self._check_compatible(other)
             return other
         return self.descriptor.constant(float(other))
 
@@ -186,6 +250,48 @@ class Tpsa:
         second = self.descriptor.zero()
         getattr(lib(), fn)(self._ptr, first._ptr, second._ptr)
         return first, second
+
+    def _check_compatible(self, other: Tpsa) -> None:
+        """Raise if ``other`` cannot be combined with this series."""
+        if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
+            raise ValueError('Incompatible TPSA descriptors')
+
+    def _variable_index(self, variable: int | Tpsa) -> int:
+        """Return a validated 1-based variable/parameter index."""
+        if isinstance(variable, Tpsa):
+            self._check_compatible(variable)
+            variable_index = lib().xgtpsa_tpsa_variable_index(variable._ptr)
+            if variable_index < 0:
+                raise ValueError('Variable must be a TPSA identity variable with coefficient 1')
+            return variable_index
+
+        variable_index = int(variable)
+        monomial_length = self.descriptor.monomial_length
+        if not 1 <= variable_index <= monomial_length:
+            raise ValueError(f'Variable index must be in [1, monomial_length={monomial_length}]')
+        return variable_index
+
+    def _derivative_monomial(self, variable: tuple[int, ...] | Tpsa) -> list[int]:
+        """Return a validated higher-derivative monomial."""
+        if isinstance(variable, Tpsa):
+            self._check_compatible(variable)
+            monomial_arr = ffi().new('unsigned char[]', self.descriptor.monomial_length)
+            if not lib().xgtpsa_tpsa_single_monomial(
+                variable._ptr, self.descriptor.monomial_length, monomial_arr
+            ):
+                raise ValueError('Derivative TPSA must contain exactly one non-constant monomial')
+            monomial = list(monomial_arr)
+        else:
+            monomial = [int(order) for order in variable]
+
+        monomial_length = self.descriptor.monomial_length
+        if len(monomial) != monomial_length:
+            raise ValueError(f'derivative monomial must have length {monomial_length}')
+        if sum(monomial) == 0:
+            raise ValueError('derivative monomial must have positive order')
+        if not self.descriptor.is_valid_monomial(monomial):
+            raise ValueError('derivative monomial is not valid for this descriptor')
+        return monomial
 
     def equals(self, other: Tpsa, tol: float = 0.0) -> bool:
         """Return whether this series and ``other`` have matching coefficients."""
