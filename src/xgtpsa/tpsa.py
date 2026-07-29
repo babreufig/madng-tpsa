@@ -92,7 +92,8 @@ class Tpsa:
         self.set(monomial, value)
 
     def coefficient(
-        self, monomials: Sequence[int] | Sequence[Sequence[int]] | np.ndarray
+        self,
+        monomials: Sequence[int] | Sequence[Sequence[int]] | np.ndarray,
     ) -> float | np.ndarray:
         """Return coefficients for one monomial or a batch of monomials.
 
@@ -105,7 +106,8 @@ class Tpsa:
             return self.get(tuple(monomial_arr))
         if monomial_arr.ndim == 2:
             return np.array([self.get(tuple(row)) for row in monomial_arr])
-        raise ValueError('monomials must be one monomial or a two-dimensional batch')
+        message = 'monomials must be one monomial or a two-dimensional batch'
+        raise ValueError(message)
 
     def monomial_coeffs(self, tol: Numeric = 1e-14) -> dict[tuple[int, ...], float]:
         """Return stored coefficients larger than ``tol`` in absolute value.
@@ -236,11 +238,12 @@ class Tpsa:
             c_num_vars = 0
         else:
             if not isinstance(num_pairs, int) or isinstance(num_pairs, bool):
-                raise ValueError("num_pairs must be 'all' or an integer")
+                message = "num_pairs must be 'all' or an integer"
+                raise ValueError(message)
             c_num_vars = 2 * int(num_pairs)
             if not 0 < c_num_vars <= self.descriptor.num_vars:
                 raise ValueError(
-                    f'num_pairs must satisfy 0 < 2 * num_pairs <= {self.descriptor.num_vars}'
+                    f'num_pairs must satisfy 0 < 2 * num_pairs <= {self.descriptor.num_vars}',
                 )
 
         result = self.descriptor.zero()
@@ -282,7 +285,8 @@ class Tpsa:
     def _check_compatible(self, other: Tpsa) -> None:
         """Raise if ``other`` cannot be combined with this series."""
         if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
-            raise ValueError('Incompatible TPSA descriptors')
+            message = 'Incompatible TPSA descriptors'
+            raise ValueError(message)
 
     def _variable_index(self, variable: int | str | Tpsa) -> int:
         """Return a validated 1-based variable/parameter index."""
@@ -290,7 +294,8 @@ class Tpsa:
             self._check_compatible(variable)
             variable_index = lib().xgtpsa_tpsa_variable_index(variable._ptr)
             if variable_index < 0:
-                raise ValueError('Variable must be a TPSA identity variable with coefficient 1')
+                message = 'Variable must be a TPSA identity variable with coefficient 1'
+                raise ValueError(message)
             return variable_index
 
         variable_index = self.descriptor.variable_index(variable)
@@ -305,9 +310,12 @@ class Tpsa:
             self._check_compatible(variable)
             monomial_arr = ffi().new('unsigned char[]', self.descriptor.monomial_length)
             if not lib().xgtpsa_tpsa_single_monomial(
-                variable._ptr, self.descriptor.monomial_length, monomial_arr
+                variable._ptr,
+                self.descriptor.monomial_length,
+                monomial_arr,
             ):
-                raise ValueError('Derivative TPSA must contain exactly one non-constant monomial')
+                message = 'Derivative TPSA must contain exactly one non-constant monomial'
+                raise ValueError(message)
             monomial = list(monomial_arr)
         else:
             monomial = [int(order) for order in variable]
@@ -316,9 +324,11 @@ class Tpsa:
         if len(monomial) != monomial_length:
             raise ValueError(f'derivative monomial must have length {monomial_length}')
         if sum(monomial) == 0:
-            raise ValueError('derivative monomial must have positive order')
+            message = 'derivative monomial must have positive order'
+            raise ValueError(message)
         if not self.descriptor.is_valid_monomial(monomial):
-            raise ValueError('derivative monomial is not valid for this descriptor')
+            message = 'derivative monomial is not valid for this descriptor'
+            raise ValueError(message)
         return monomial
 
     def equals(self, other: Tpsa, tol: Numeric = 0.0) -> bool:
@@ -376,7 +386,8 @@ class Tpsa:
         result = self.descriptor.zero()
         if isinstance(other, Tpsa):
             if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
-                raise ValueError('Incompatible TPSA descriptors')
+                message = 'Incompatible TPSA descriptors'
+                raise ValueError(message)
             lib().mad_tpsa_pow(self._ptr, other._ptr, result._ptr)
         elif isinstance(other, Integral):
             lib().mad_tpsa_powi(self._ptr, int(other), result._ptr)
@@ -414,7 +425,8 @@ class Tpsa:
     def unit(self) -> Tpsa:
         """Return this series divided by the magnitude of its constant coefficient."""
         if self.const_part == 0.0:
-            raise ZeroDivisionError('Cannot normalize a TPSA with zero constant part')
+            message = 'Cannot normalize a TPSA with zero constant part'
+            raise ZeroDivisionError(message)
         return self._unary_op('mad_tpsa_unit')
 
     def sqrt(self) -> Tpsa:
@@ -566,7 +578,11 @@ class Tpsa:
         return NotImplemented
 
     def __array_function__(
-        self, func: Any, types: tuple[type, ...], args: tuple[Any, ...], kwargs: dict[str, Any]
+        self,
+        func: Any,
+        types: tuple[type, ...],
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
     ) -> Any:
         """Map supported NumPy functions to matching TPSA operations."""
         if func is np.sinc and args == (self,) and not kwargs:

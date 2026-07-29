@@ -6,7 +6,7 @@ import xgtpsa
 
 
 def _polynomial():
-    desc = xgtpsa.Descriptor(vars=['x', 'y'], order=2)
+    desc = xgtpsa.Descriptor(variables=['x', 'y'], order=2)
     t = desc.zero()
     t.from_dict({(0, 0): -6.0, (1, 0): 2.0, (0, 2): 3.0})
     return desc, t

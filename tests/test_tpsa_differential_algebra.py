@@ -19,7 +19,7 @@ def test_integrate_accepts_index_or_identity_variable():
 
 
 def test_integrate_accepts_labels():
-    d = xgtpsa.Descriptor(vars=['x', 'y'], order=3)
+    d = xgtpsa.Descriptor(variables=['x', 'y'], order=3)
     x, y = d.vars()
     f = x * x + 3.0 * y
 
@@ -52,7 +52,7 @@ def test_derivative_accepts_index_identity_variable_tuple_or_single_monomial_tps
 
 
 def test_derivative_accepts_labels():
-    d = xgtpsa.Descriptor(vars=['x', 'y'], order=3, params=['k'])
+    d = xgtpsa.Descriptor(variables=['x', 'y'], order=3, params=['k'])
     x = d.var('x')
     y = d.var('y')
     k = d.param('k')

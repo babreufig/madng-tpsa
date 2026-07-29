@@ -26,7 +26,7 @@ def test_vars_unpack_all_identity_seeds():
 
 
 def test_var_and_param_labels_can_seed_series():
-    d = xgtpsa.Descriptor(vars=['x', 'y'], order=2, params=['k'])
+    d = xgtpsa.Descriptor(variables=['x', 'y'], order=2, params=['k'])
     x = d.var('x', 0.5)
     y = d.var('y')
     k = d.param('k', 2.0)

@@ -48,7 +48,7 @@ def lib_dir() -> str:
 
     if not path_to_so.exists():
         raise RuntimeError(
-            f'GTPSA library {path_to_so} does not exist. Was the package built correctly?'
+            f'GTPSA library {path_to_so} does not exist. Was the package built correctly?',
         )
 
     return str(_LIB)
@@ -60,7 +60,7 @@ def include_dir() -> str:
 
     if not (_INCLUDE / test_file).exists():
         raise RuntimeError(
-            f'GTPSA include headers not found in {_INCLUDE}. Was the package built correctly?'
+            f'GTPSA include headers not found in {_INCLUDE}. Was the package built correctly?',
         )
 
     return str(_INCLUDE)

@@ -23,7 +23,8 @@ def format_polynomial(tpsa: Tpsa, labels: Sequence[str], style: PolynomialStyle)
         return Math(_format_math(coefficients, labels))
     if style == 'table':
         return _format_table(coefficients, labels)
-    raise ValueError("style must be 'code', 'math', or 'table'")
+    message = "style must be 'code', 'math', or 'table'"
+    raise ValueError(message)
 
 
 def _format_code(coeffs: dict[tuple[int, ...], float], labels: Sequence[str]) -> str:
