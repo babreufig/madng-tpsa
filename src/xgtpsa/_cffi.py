@@ -30,6 +30,8 @@ CDEF = """
     void mad_tpsa_setprm(void* t, double v, int ip);
     void mad_tpsa_setval(void* t, double v);
     void mad_tpsa_clear(void* t);
+    int mad_tpsa_isnul(const void* t);
+    int mad_tpsa_isval(const void* t);
     double mad_tpsa_geti(void* t, int i);
     double mad_tpsa_getm(void* t, int n, const unsigned char* m);
     void mad_tpsa_seti(void* t, int i, double a, double b);

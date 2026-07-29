@@ -48,9 +48,13 @@ def test_constant_series():
     const = d.constant(1.5)
 
     assert zero.monomial_coeffs() == {}
+    assert zero.is_zero()
+    assert zero.is_constant()
     assert zero.const_part == 0.0
     assert zero.grad() == [0.0] * d.num_vars
     assert const.const_part == 1.5
+    assert not const.is_zero()
+    assert const.is_constant()
     assert const.grad() == [0.0] * d.num_vars
 
 
@@ -192,6 +196,21 @@ def test_copy_is_independent():
     c = x.copy()
     x.set_const_part(9.0)
     assert (c.const_part, x.const_part) == (1.0, 9.0)
+
+
+def test_clear_sets_series_to_zero_in_place():
+    d = xgtpsa.Descriptor(2, 2)
+    x, y = d.vars(values=[1.0, 2.0])
+    t = x * y + 3.0
+
+    assert not t.is_zero()
+    assert not t.is_constant()
+
+    t.clear()
+
+    assert t.is_zero()
+    assert t.is_constant()
+    assert t.to_dict() == {}
 
 
 def test_set_and_get_coefficients():

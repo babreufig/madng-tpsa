@@ -127,9 +127,21 @@ class Tpsa:
         Keys are full monomial exponent tuples with one entry per variable and
         parameter. Existing coefficients are cleared before the new ones are set.
         """
-        lib().mad_tpsa_clear(self._ptr)
+        self.clear()
         for monomial, coefficient in coefficients.items():
             self.set(monomial, coefficient)
+
+    def is_zero(self) -> bool:
+        """Return whether this series has no non-zero coefficients."""
+        return bool(lib().mad_tpsa_isnul(self._ptr))
+
+    def is_constant(self) -> bool:
+        """Return whether this series has no non-constant coefficients."""
+        return bool(lib().mad_tpsa_isval(self._ptr))
+
+    def clear(self) -> None:
+        """Set all coefficients to zero in place."""
+        lib().mad_tpsa_clear(self._ptr)
 
     def grad(self) -> list[float]:
         """First-order coefficients for the descriptor variables."""
