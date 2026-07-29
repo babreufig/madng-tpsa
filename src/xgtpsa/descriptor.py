@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple
 
 from ._cffi import ffi, lib
-from .tpsa import Tpsa
+from .tpsa import Numeric, Tpsa
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -125,7 +125,7 @@ class Descriptor:
         arr = ffi().new('unsigned char[]', m)
         return bool(lib().mad_desc_isvalidm(self._ptr, len(m), arr))
 
-    def constant(self, value: float, /) -> Tpsa:
+    def constant(self, value: Numeric, /) -> Tpsa:
         """Create a constant TPSA series on this descriptor."""
         t = self.zero()
         lib().mad_tpsa_seti(t.ptr, 0, 0.0, float(value))
@@ -135,7 +135,7 @@ class Descriptor:
         """Create a zero TPSA series on this descriptor."""
         return Tpsa(self)
 
-    def var(self, index: int, value: float = 0.0) -> Tpsa:
+    def var(self, index: int, value: Numeric = 0.0) -> Tpsa:
         """Create identity variable ``index`` on this descriptor.
 
         The variable index starts from 1 and is expanded around ``value``.
@@ -144,7 +144,7 @@ class Descriptor:
         lib().mad_tpsa_setvar(t.ptr, float(value), int(index), 0.0)
         return t
 
-    def vars(self, values: Sequence[float] | None = None) -> tuple[Tpsa, ...]:
+    def vars(self, values: Sequence[Numeric] | None = None) -> tuple[Tpsa, ...]:
         """Create identity series for all variables on this descriptor.
 
         If ``values`` is provided, each variable is expanded around the
@@ -156,7 +156,7 @@ class Descriptor:
             raise ValueError('values must contain one entry per variable')
         return tuple(self.var(index, value) for index, value in enumerate(values, start=1))
 
-    def param(self, index: int, value: float = 0.0) -> Tpsa:
+    def param(self, index: int, value: Numeric = 0.0) -> Tpsa:
         """Create identity parameter ``index`` on this descriptor.
 
         The parameter index starts from 1. Parameters are appended after
