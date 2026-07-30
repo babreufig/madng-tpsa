@@ -28,6 +28,7 @@ CDEF = """
     );
     void mad_desc_del(const void* d);
     int mad_desc_getnv(const void* d, unsigned char* mo_, int* np_, unsigned char* po_);
+    unsigned char mad_desc_maxord(const void* d, int n, unsigned char* no);
     _Bool mad_desc_isvalidm(const void* d, int n, const unsigned char* m);
 
     void* mad_tpsa_newd(void* desc, unsigned char mo);

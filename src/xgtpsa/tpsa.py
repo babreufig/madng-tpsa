@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
     from .descriptor import Descriptor
-    from .formatting import PolynomialStyle
+    from .formatting import FormatStyle
 
 Numeric = int | float
 
@@ -25,10 +25,13 @@ class Tpsa:
 
     __slots__ = ('_descriptor', '_ptr')
 
-    def __init__(self, descriptor: Descriptor) -> None:
+    def __init__(self, descriptor: Descriptor, order: int | None = None) -> None:
         """Create a zero series on ``descriptor``."""
+        if order is None:
+            order = lib().mad_tpsa_dflt
+
         self._descriptor = descriptor
-        self._ptr = lib().mad_tpsa_newd(descriptor.ptr, lib().mad_tpsa_dflt)
+        self._ptr = lib().mad_tpsa_newd(descriptor.ptr, order)
 
     @classmethod
     def from_ptr(cls, ptr: Any, descriptor: Descriptor | None = None) -> Tpsa:
@@ -62,7 +65,14 @@ class Tpsa:
     @property
     def order(self) -> int:
         """Maximum order stored by this series."""
-        return lib().mad_tpsa_ord(self._ptr, False)  # noqa: FBT003
+        highest_non_zero_order = False
+        return lib().mad_tpsa_ord(self._ptr, highest_non_zero_order)
+
+    @property
+    def max_nonzero_order(self) -> int:
+        """Highest order currently containing a non-zero coefficient."""
+        highest_non_zero_order = True
+        return lib().mad_tpsa_ord(self._ptr, highest_non_zero_order)
 
     @property
     def const_part(self) -> float:
@@ -72,6 +82,7 @@ class Tpsa:
     def get(self, monomial: Iterable[int]) -> float:
         """Return the coefficient for ``monomial``."""
         monomial_orders = list(monomial)
+        self._check_monomial(monomial_orders)
         monomial_arr = ffi().new('unsigned char[]', monomial_orders)
         return lib().mad_tpsa_getm(self._ptr, len(monomial_orders), monomial_arr)
 
@@ -82,6 +93,7 @@ class Tpsa:
     def set(self, monomial: Iterable[int], value: Numeric) -> None:
         """Set the coefficient for ``monomial``."""
         monomial_orders = list(monomial)
+        self._check_monomial(monomial_orders)
         monomial_arr = ffi().new('unsigned char[]', monomial_orders)
         lib().mad_tpsa_setm(self._ptr, len(monomial_orders), monomial_arr, 0.0, float(value))
 
@@ -106,7 +118,7 @@ class Tpsa:
             return self.get(tuple(monomial_arr))
         if monomial_arr.ndim == 2:
             return np.array([self.get(tuple(row)) for row in monomial_arr])
-        message = 'monomials must be one monomial or a two-dimensional batch'
+        message = 'Monomials must be one monomial or a two-dimensional batch'
         raise ValueError(message)
 
     def monomial_coeffs(self, tol: Numeric = 1e-14) -> dict[tuple[int, ...], float]:
@@ -238,12 +250,13 @@ class Tpsa:
             c_num_vars = 0
         else:
             if not isinstance(num_pairs, int) or isinstance(num_pairs, bool):
-                message = "num_pairs must be 'all' or an integer"
+                message = "Parameter num_pairs must be 'all' or an integer"
                 raise ValueError(message)
             c_num_vars = 2 * int(num_pairs)
             if not 0 < c_num_vars <= self.descriptor.num_vars:
                 raise ValueError(
-                    f'num_pairs must satisfy 0 < 2 * num_pairs <= {self.descriptor.num_vars}',
+                    f'Parameter num_pairs must satisfy '
+                    f'0 < 2 * num_pairs <= {self.descriptor.num_vars}',
                 )
 
         result = self.descriptor.zero()
@@ -253,7 +266,7 @@ class Tpsa:
     def __repr__(self):
         return f'Tpsa({self.to_dict()!r})'
 
-    def format(self, style: PolynomialStyle = 'code') -> object:
+    def format(self, style: FormatStyle = 'code') -> object:
         """Format this series as code, LaTeX math, or a rich table."""
         return self.descriptor.format_polynomial(self, style=style)
 
@@ -286,6 +299,14 @@ class Tpsa:
         """Raise if ``other`` cannot be combined with this series."""
         if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
             message = 'Incompatible TPSA descriptors'
+            raise ValueError(message)
+
+    def _check_monomial(self, monomial: list[int]) -> None:
+        if not self.descriptor.is_valid_monomial(monomial):
+            message = 'Monomial is not valid for this descriptor'
+            raise ValueError(message)
+        if sum(monomial) > self.order:
+            message = f'Monomial order exceeds TPSA order {self.order}'
             raise ValueError(message)
 
     def _variable_index(self, variable: int | str | Tpsa) -> int:
@@ -322,12 +343,12 @@ class Tpsa:
 
         monomial_length = self.descriptor.monomial_length
         if len(monomial) != monomial_length:
-            raise ValueError(f'derivative monomial must have length {monomial_length}')
+            raise ValueError(f'Derivative monomial must have length {monomial_length}')
         if sum(monomial) == 0:
-            message = 'derivative monomial must have positive order'
+            message = 'Derivative monomial must have positive order'
             raise ValueError(message)
         if not self.descriptor.is_valid_monomial(monomial):
-            message = 'derivative monomial is not valid for this descriptor'
+            message = 'Derivative monomial is not valid for this descriptor'
             raise ValueError(message)
         return monomial
 
@@ -454,7 +475,7 @@ class Tpsa:
         return self._unary_op('mad_tpsa_tan')
 
     def sinc(self) -> Tpsa:
-        """Return ``sin(x) / x`` for this series, with MAD-NG's regularisation at zero."""
+        """Return ``sin(x) / x`` (unnormalised ``sinc``, maths convention) for this series."""
         return self._unary_op('mad_tpsa_sinc')
 
     def asin(self) -> Tpsa:
@@ -494,7 +515,7 @@ class Tpsa:
         return self._unary_op('mad_tpsa_tanh')
 
     def sinhc(self) -> Tpsa:
-        """Return ``sinh(x) / x`` for this series, with MAD-NG's regularisation at zero."""
+        """Return ``sinh(x) / x`` for this series (unnormalised ``sinhc``, maths convention)."""
         return self._unary_op('mad_tpsa_sinhc')
 
     def asinh(self) -> Tpsa:
@@ -586,6 +607,7 @@ class Tpsa:
     ) -> Any:
         """Map supported NumPy functions to matching TPSA operations."""
         if func is np.sinc and args == (self,) and not kwargs:
+            # We use mathematics convention, but NumPy prefers the DSP one (normalised sinc)
             return (np.pi * self).sinc()
         return NotImplemented
 

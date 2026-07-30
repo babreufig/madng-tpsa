@@ -67,11 +67,11 @@ def test_derivative_rejects_invalid_monomials():
     d = xgtpsa.Descriptor(2, 2)
     x, y = d.vars()
 
-    with pytest.raises(ValueError, match='positive order'):
+    with pytest.raises(ValueError, match='Derivative monomial must have positive order'):
         x.derivative((0, 0))
-    with pytest.raises(ValueError, match='length'):
+    with pytest.raises(ValueError, match='Derivative monomial must have length'):
         x.derivative((1,))
-    with pytest.raises(ValueError, match='not valid'):
+    with pytest.raises(ValueError, match='Derivative monomial is not valid'):
         x.derivative((3, 0))
     with pytest.raises(ValueError, match='exactly one'):
         x.derivative(x + y)

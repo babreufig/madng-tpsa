@@ -52,5 +52,5 @@ def test_format_polynomial_rejects_different_descriptor():
 def test_format_polynomial_rejects_unknown_style():
     _, t = _polynomial()
 
-    with pytest.raises(ValueError, match='style'):
+    with pytest.raises(ValueError, match='Style'):
         t.format(style='bad')

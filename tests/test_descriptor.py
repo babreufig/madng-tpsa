@@ -80,6 +80,7 @@ def test_descriptor_generates_default_labels():
 def test_descriptor_accepts_per_variable_max_orders():
     d = xgtpsa.Descriptor(variables=['x', 'y'], order=3, max_orders=[1, 3])
 
+    assert d.max_orders == (1, 3)
     assert d.is_valid_monomial((1, 0))
     assert not d.is_valid_monomial((2, 0))
     assert d.is_valid_monomial((0, 3))
@@ -88,8 +89,16 @@ def test_descriptor_accepts_per_variable_max_orders():
 def test_descriptor_accepts_parameter_max_orders():
     d = xgtpsa.Descriptor(variables=['x'], order=3, params=['k'], max_orders=[3, 1])
 
+    assert d.max_orders == (3, 1)
     assert d.is_valid_monomial((1, 1))
     assert not d.is_valid_monomial((0, 2))
+
+
+def test_descriptor_warns_when_max_orders_raise_order():
+    with pytest.warns(UserWarning, match='Order 2 was given, but it was overridden to 4'):
+        d = xgtpsa.Descriptor(variables=['x', 'y'], order=2, max_orders=[2, 4])
+
+    assert d.order == 4
 
 
 def test_descriptor_rejects_mismatched_label_counts():
@@ -99,10 +108,10 @@ def test_descriptor_rejects_mismatched_label_counts():
     with pytest.raises(ValueError, match='Param labels must contain 2 entries'):
         xgtpsa.Descriptor(2, 2, num_params=2, params=['k'])
 
-    with pytest.raises(ValueError, match='Length of max_orders must correspond'):
+    with pytest.raises(ValueError, match='Length of max_orders must have the length'):
         xgtpsa.Descriptor(2, 2, num_params=1, max_orders=[1, 1])
 
-    with pytest.raises(ValueError, match='max_orders entries must be positive'):
+    with pytest.raises(ValueError, match='All max_orders must be positive'):
         xgtpsa.Descriptor(2, 2, max_orders=[1, 0])
 
 

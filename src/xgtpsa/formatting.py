@@ -2,28 +2,26 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, no_type_check
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from .tpsa import Tpsa
 
-PolynomialStyle = Literal['code', 'math', 'table']
+FormatStyle = Literal['code', 'math', 'table']
 
 
-def format_polynomial(tpsa: Tpsa, labels: Sequence[str], style: PolynomialStyle) -> object:
+def format_polynomial(tpsa: Tpsa, labels: Sequence[str], style: FormatStyle) -> object:
     """Format ``tpsa`` using ``labels`` for variables and parameters."""
     coefficients = tpsa.to_dict()
     if style == 'code':
         return _format_code(coefficients, labels)
     if style == 'math':
-        from IPython.display import Math  # type: ignore
-
-        return Math(_format_math(coefficients, labels))
+        return _format_math(coefficients, labels)
     if style == 'table':
         return _format_table(coefficients, labels)
-    message = "style must be 'code', 'math', or 'table'"
+    message = "Style must be 'code', 'math', or 'table'"
     raise ValueError(message)
 
 
@@ -37,14 +35,18 @@ def _format_code(coeffs: dict[tuple[int, ...], float], labels: Sequence[str]) ->
     )
 
 
-def _format_math(coeffs: dict[tuple[int, ...], float], labels: Sequence[str]) -> str:
+@no_type_check
+def _format_math(coeffs: dict[tuple[int, ...], float], labels: Sequence[str]) -> object:
     """Format a series as Jupyter-friendly Math object, e.g. ``Math('12 + 2 x + 3 x y^{2}')``."""
-    return _format_terms(
+    from IPython.display import Math
+
+    formatted = _format_terms(
         coeffs,
         labels,
         separator=' ',
         format_power=lambda label, exponent: rf'{label}^{{{exponent}}}',
     )
+    return Math(formatted)
 
 
 def _format_terms(
