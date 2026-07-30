@@ -6,7 +6,6 @@ MAD-NG GTPSA public API headers in ``src/xgtpsa/include``.
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -25,15 +24,6 @@ def _library_name() -> str:
             return f'lib{LIB_BASENAME}.so'
 
     raise RuntimeError(f'Platform {sys.platform} not supported for Xgtpsa')
-
-
-def _base() -> str | None:
-    """The directory an env override points at (a file's dirname is fine), or None."""
-    p = os.environ.get('XGTPSA_LIB')
-    if not p:
-        return None
-    path = Path(p)
-    return str(path if path.is_dir() else path.resolve().parent)
 
 
 def core_library() -> str:

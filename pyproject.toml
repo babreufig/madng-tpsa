@@ -92,7 +92,7 @@ extend-select = [
 ignore = [
     "D105",  # Missing docstring in magic method
 ]
-pydocstyle.convention = "google"
+pydocstyle.convention = "numpy"
 fixable = ["ALL"]
 unfixable = []
 
