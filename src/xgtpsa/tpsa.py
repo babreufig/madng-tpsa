@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
     from .descriptor import Descriptor
-    from .formatting import PolynomialStyle
+    from .formatting import FormatStyle
 
 Numeric = int | float
 
@@ -23,23 +23,67 @@ Numeric = int | float
 class Tpsa:
     """A truncated power series in the algebraic space defined by a descriptor."""
 
-    __slots__ = ('_descriptor', '_ptr')
+    __slots__ = ('_descriptor', '_ptr', '__weakref__')
 
-    def __init__(self, descriptor: Descriptor) -> None:
+    def __init__(self, descriptor: Descriptor, order: int | None = None) -> None:
         """Create a zero series on ``descriptor``."""
+        if order is None:
+            order = lib().mad_tpsa_dflt
+
         self._descriptor = descriptor
-        self._ptr = lib().mad_tpsa_newd(descriptor.ptr, lib().mad_tpsa_dflt)
+        self._ptr = lib().mad_tpsa_newd(descriptor.ptr, order)
+        descriptor._tpsas[int(ffi().cast('uintptr_t', self._ptr))] = self
 
     @classmethod
-    def from_ptr(cls, ptr: Any, descriptor: Descriptor | None = None) -> Tpsa:
-        """Wrap an existing low-level TPSA pointer."""
-        if descriptor is None:
+    def from_ptr(
+        cls, ptr: Any, descriptor: Descriptor | None = None, *, owns: bool = False
+    ) -> Tpsa:
+        """Return the interned ``Tpsa`` for a raw C pointer.
+
+        If a live ``Tpsa`` already wraps ``ptr`` it is returned directly, so
+        that at most one Python object exists per C allocation, preventing a
+        use-after-free if two owners existed for the same pointer.
+
+        Parameters
+        ----------
+        ptr:
+            Raw CFFI TPSA pointer.
+        descriptor:
+            Descriptor that owns this TPSA. When omitted it is inferred from
+            the pointer via ``mad_tpsa_desc``. Required if ``owns`` is False.
+        owns:
+            Set it to ``True`` only when ``ptr`` points to a freshly allocated
+            C object that has no Python wrapper yet, i.e. the call site created
+            the allocation and is handing ownership. The default ``False``
+            treats an unknown pointer as a bug and will raise.
+        """
+        key = int(ffi().cast('uintptr_t', ptr))
+
+        if descriptor is not None:
+            existing = descriptor._tpsas.get(key)
+            if existing is not None:
+                return existing
+            if not owns:
+                message = (
+                    'No live Tpsa found for the given pointer. '
+                    'Pass owns=True to wrap a freshly allocated pointer.'
+                )
+                raise ValueError(message)
+        elif not owns:
+            message = 'A descriptor must be provided if owns is False.'
+            raise ValueError(message)
+        else:
             from .descriptor import Descriptor
 
             descriptor = Descriptor.from_ptr(lib().mad_tpsa_desc(ptr))
+            existing = descriptor._tpsas.get(key)
+            if existing is not None:
+                return existing
+
         t = cls.__new__(cls)
         t._descriptor = descriptor
         t._ptr = ptr
+        descriptor._tpsas[key] = t
         return t
 
     def __del__(self) -> None:
@@ -62,7 +106,14 @@ class Tpsa:
     @property
     def order(self) -> int:
         """Maximum order stored by this series."""
-        return lib().mad_tpsa_ord(self._ptr, False)  # noqa: FBT003
+        highest_non_zero_order = False
+        return lib().mad_tpsa_ord(self._ptr, highest_non_zero_order)
+
+    @property
+    def max_nonzero_order(self) -> int:
+        """Highest order currently containing a non-zero coefficient."""
+        highest_non_zero_order = True
+        return lib().mad_tpsa_ord(self._ptr, highest_non_zero_order)
 
     @property
     def const_part(self) -> float:
@@ -72,6 +123,7 @@ class Tpsa:
     def get(self, monomial: Iterable[int]) -> float:
         """Return the coefficient for ``monomial``."""
         monomial_orders = list(monomial)
+        self._check_monomial(monomial_orders)
         monomial_arr = ffi().new('unsigned char[]', monomial_orders)
         return lib().mad_tpsa_getm(self._ptr, len(monomial_orders), monomial_arr)
 
@@ -82,6 +134,7 @@ class Tpsa:
     def set(self, monomial: Iterable[int], value: Numeric) -> None:
         """Set the coefficient for ``monomial``."""
         monomial_orders = list(monomial)
+        self._check_monomial(monomial_orders)
         monomial_arr = ffi().new('unsigned char[]', monomial_orders)
         lib().mad_tpsa_setm(self._ptr, len(monomial_orders), monomial_arr, 0.0, float(value))
 
@@ -92,7 +145,8 @@ class Tpsa:
         self.set(monomial, value)
 
     def coefficient(
-        self, monomials: Sequence[int] | Sequence[Sequence[int]] | np.ndarray
+        self,
+        monomials: Sequence[int] | Sequence[Sequence[int]] | np.ndarray,
     ) -> float | np.ndarray:
         """Return coefficients for one monomial or a batch of monomials.
 
@@ -105,7 +159,8 @@ class Tpsa:
             return self.get(tuple(monomial_arr))
         if monomial_arr.ndim == 2:
             return np.array([self.get(tuple(row)) for row in monomial_arr])
-        raise ValueError('monomials must be one monomial or a two-dimensional batch')
+        message = 'Monomials must be one monomial or a two-dimensional batch'
+        raise ValueError(message)
 
     def monomial_coeffs(self, tol: Numeric = 1e-14) -> dict[tuple[int, ...], float]:
         """Return stored coefficients larger than ``tol`` in absolute value.
@@ -236,11 +291,13 @@ class Tpsa:
             c_num_vars = 0
         else:
             if not isinstance(num_pairs, int) or isinstance(num_pairs, bool):
-                raise ValueError("num_pairs must be 'all' or an integer")
+                message = "Parameter num_pairs must be 'all' or an integer"
+                raise ValueError(message)
             c_num_vars = 2 * int(num_pairs)
             if not 0 < c_num_vars <= self.descriptor.num_vars:
                 raise ValueError(
-                    f'num_pairs must satisfy 0 < 2 * num_pairs <= {self.descriptor.num_vars}'
+                    f'Parameter num_pairs must satisfy '
+                    f'0 < 2 * num_pairs <= {self.descriptor.num_vars}',
                 )
 
         result = self.descriptor.zero()
@@ -250,7 +307,7 @@ class Tpsa:
     def __repr__(self):
         return f'Tpsa({self.to_dict()!r})'
 
-    def format(self, style: PolynomialStyle = 'code') -> object:
+    def format(self, style: FormatStyle = 'code') -> object:
         """Format this series as code, LaTeX math, or a rich table."""
         return self.descriptor.format_polynomial(self, style=style)
 
@@ -282,7 +339,16 @@ class Tpsa:
     def _check_compatible(self, other: Tpsa) -> None:
         """Raise if ``other`` cannot be combined with this series."""
         if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
-            raise ValueError('Incompatible TPSA descriptors')
+            message = 'Incompatible TPSA descriptors'
+            raise ValueError(message)
+
+    def _check_monomial(self, monomial: list[int]) -> None:
+        if not self.descriptor.is_valid_monomial(monomial):
+            message = 'Monomial is not valid for this descriptor'
+            raise ValueError(message)
+        if sum(monomial) > self.order:
+            message = f'Monomial order exceeds TPSA order {self.order}'
+            raise ValueError(message)
 
     def _variable_index(self, variable: int | str | Tpsa) -> int:
         """Return a validated 1-based variable/parameter index."""
@@ -290,7 +356,8 @@ class Tpsa:
             self._check_compatible(variable)
             variable_index = lib().xgtpsa_tpsa_variable_index(variable._ptr)
             if variable_index < 0:
-                raise ValueError('Variable must be a TPSA identity variable with coefficient 1')
+                message = 'Variable must be a TPSA identity variable with coefficient 1'
+                raise ValueError(message)
             return variable_index
 
         variable_index = self.descriptor.variable_index(variable)
@@ -305,20 +372,25 @@ class Tpsa:
             self._check_compatible(variable)
             monomial_arr = ffi().new('unsigned char[]', self.descriptor.monomial_length)
             if not lib().xgtpsa_tpsa_single_monomial(
-                variable._ptr, self.descriptor.monomial_length, monomial_arr
+                variable._ptr,
+                self.descriptor.monomial_length,
+                monomial_arr,
             ):
-                raise ValueError('Derivative TPSA must contain exactly one non-constant monomial')
+                message = 'Derivative TPSA must contain exactly one non-constant monomial'
+                raise ValueError(message)
             monomial = list(monomial_arr)
         else:
             monomial = [int(order) for order in variable]
 
         monomial_length = self.descriptor.monomial_length
         if len(monomial) != monomial_length:
-            raise ValueError(f'derivative monomial must have length {monomial_length}')
+            raise ValueError(f'Derivative monomial must have length {monomial_length}')
         if sum(monomial) == 0:
-            raise ValueError('derivative monomial must have positive order')
+            message = 'Derivative monomial must have positive order'
+            raise ValueError(message)
         if not self.descriptor.is_valid_monomial(monomial):
-            raise ValueError('derivative monomial is not valid for this descriptor')
+            message = 'Derivative monomial is not valid for this descriptor'
+            raise ValueError(message)
         return monomial
 
     def equals(self, other: Tpsa, tol: Numeric = 0.0) -> bool:
@@ -376,7 +448,8 @@ class Tpsa:
         result = self.descriptor.zero()
         if isinstance(other, Tpsa):
             if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
-                raise ValueError('Incompatible TPSA descriptors')
+                message = 'Incompatible TPSA descriptors'
+                raise ValueError(message)
             lib().mad_tpsa_pow(self._ptr, other._ptr, result._ptr)
         elif isinstance(other, Integral):
             lib().mad_tpsa_powi(self._ptr, int(other), result._ptr)
@@ -414,7 +487,8 @@ class Tpsa:
     def unit(self) -> Tpsa:
         """Return this series divided by the magnitude of its constant coefficient."""
         if self.const_part == 0.0:
-            raise ZeroDivisionError('Cannot normalize a TPSA with zero constant part')
+            message = 'Cannot normalize a TPSA with zero constant part'
+            raise ZeroDivisionError(message)
         return self._unary_op('mad_tpsa_unit')
 
     def sqrt(self) -> Tpsa:
@@ -442,7 +516,7 @@ class Tpsa:
         return self._unary_op('mad_tpsa_tan')
 
     def sinc(self) -> Tpsa:
-        """Return ``sin(x) / x`` for this series, with MAD-NG's regularisation at zero."""
+        """Return ``sin(x) / x`` (unnormalised ``sinc``, maths convention) for this series."""
         return self._unary_op('mad_tpsa_sinc')
 
     def asin(self) -> Tpsa:
@@ -482,7 +556,7 @@ class Tpsa:
         return self._unary_op('mad_tpsa_tanh')
 
     def sinhc(self) -> Tpsa:
-        """Return ``sinh(x) / x`` for this series, with MAD-NG's regularisation at zero."""
+        """Return ``sinh(x) / x`` for this series (unnormalised ``sinhc``, maths convention)."""
         return self._unary_op('mad_tpsa_sinhc')
 
     def asinh(self) -> Tpsa:
@@ -566,10 +640,15 @@ class Tpsa:
         return NotImplemented
 
     def __array_function__(
-        self, func: Any, types: tuple[type, ...], args: tuple[Any, ...], kwargs: dict[str, Any]
+        self,
+        func: Any,
+        types: tuple[type, ...],
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
     ) -> Any:
         """Map supported NumPy functions to matching TPSA operations."""
         if func is np.sinc and args == (self,) and not kwargs:
+            # We use mathematics convention, but NumPy prefers the DSP one (normalised sinc)
             return (np.pi * self).sinc()
         return NotImplemented
 

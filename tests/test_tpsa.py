@@ -1,5 +1,8 @@
 """Tests for TPSA series."""
 
+import gc
+import weakref
+
 import numpy as np
 import pytest
 
@@ -13,6 +16,7 @@ def test_var_is_an_identity_seed():
     assert t.grad() == [0, 1, 0, 0, 0, 0]
     assert t.descriptor is d
     assert t.order == d.order
+    assert t.max_nonzero_order == 1
 
 
 def test_vars_unpack_all_identity_seeds():
@@ -25,8 +29,35 @@ def test_vars_unpack_all_identity_seeds():
     assert py.grad() == [0, 0, 0, 1]
 
 
+def test_var_order_uses_descriptor_order_by_default():
+    d = xgtpsa.Descriptor(variables=['a', 'b'], order=4, max_orders=[2, 4])
+    a, b = d.vars()
+
+    assert a.order == 4
+    assert b.order == 4
+    assert a.max_nonzero_order == 1
+    assert b.max_nonzero_order == 1
+
+
+def test_var_zero_and_param_accept_explicit_order():
+    d = xgtpsa.Descriptor(variables=['a', 'b'], order=4, max_orders=[2, 4, 1], params=['k'])
+    zero = d.zero(order=2)
+    a = d.var('a', order=2)
+    k = d.param('k', order=1)
+
+    assert zero.order == 2
+    assert a.order == 2
+    assert k.order == 1
+
+    with pytest.raises(ValueError, match='Variable order must be positive'):
+        d.var('a', order=0)
+
+    with pytest.raises(ValueError, match='Parameter order must be 1'):
+        d.param('k', order=2)
+
+
 def test_var_and_param_labels_can_seed_series():
-    d = xgtpsa.Descriptor(vars=['x', 'y'], order=2, params=['k'])
+    d = xgtpsa.Descriptor(variables=['x', 'y'], order=2, params=['k'])
     x = d.var('x', 0.5)
     y = d.var('y')
     k = d.param('k', 2.0)
@@ -51,7 +82,7 @@ def test_vars_can_set_expansion_values():
 def test_vars_values_must_match_num_vars():
     d = xgtpsa.Descriptor(2, 2)
 
-    with pytest.raises(ValueError, match='values must contain one entry per variable'):
+    with pytest.raises(ValueError, match='Values must contain one entry per variable'):
         d.vars(values=[0.5])
 
 
@@ -64,8 +95,12 @@ def test_constant_series():
     assert zero.is_zero()
     assert zero.is_constant()
     assert zero.const_part == 0.0
+    assert zero.order == d.order
+    assert zero.max_nonzero_order == 0
     assert zero.grad() == [0.0] * d.num_vars
     assert const.const_part == 1.5
+    assert const.order == d.order
+    assert const.max_nonzero_order == 0
     assert not const.is_zero()
     assert const.is_constant()
     assert const.grad() == [0.0] * d.num_vars
@@ -78,6 +113,8 @@ def test_arithmetic_carries_derivatives():
 
     f = x * x + 2.0 * y
     assert f.const_part == pytest.approx(0.25 + 4.0)
+    assert f.order == d.order
+    assert f.max_nonzero_order == 2
     assert f.grad() == pytest.approx([2 * 0.5, 2.0])
     assert f.monomial_coeffs()[(2, 0)] == pytest.approx(1.0)
 
@@ -241,6 +278,24 @@ def test_set_and_get_coefficients():
         t.coefficient(np.zeros((1, 2, 2), dtype=int))
 
 
+def test_get_and_set_reject_invalid_or_out_of_order_monomials():
+    d = xgtpsa.Descriptor(variables=['a', 'b'], order=4, max_orders=[2, 4])
+    a = d.var('a', order=2)
+
+    assert d.is_valid_monomial((1, 3))
+    with pytest.raises(ValueError, match='Monomial order exceeds TPSA order 2'):
+        a[1, 3]
+
+    with pytest.raises(ValueError, match='Monomial order exceeds TPSA order 2'):
+        a[1, 3] = 1.0
+
+    with pytest.raises(ValueError, match='not valid for this descriptor'):
+        a[3, 0]
+
+    full_order_a = d.var('a')
+    assert full_order_a[1, 3] == 0.0
+
+
 def test_monomial_coeffs_skips_zeros_and_tiny_terms():
     d = xgtpsa.Descriptor(2, 2)
     t = d.zero()
@@ -297,3 +352,41 @@ def test_params_unpack_all_identity_seeds():
 
     assert k1.param_grad() == [1, 0]
     assert k2.param_grad() == [0, 1]
+
+
+def test_from_ptr_returns_same_object():
+    d = xgtpsa.Descriptor(2, 3)
+    t1 = d.var(1)
+    t2 = xgtpsa.Tpsa.from_ptr(t1._ptr, d)
+
+    assert t2 is t1
+
+
+def test_from_ptr_raises_for_unknown_pointer():
+    d = xgtpsa.Descriptor(2, 3)
+    t1 = d.var(1)
+    ptr = t1._ptr
+
+    del t1
+    gc.collect()
+
+    with pytest.raises(ValueError, match='No live Tpsa found'):
+        xgtpsa.Tpsa.from_ptr(ptr, d)
+
+
+def test_from_ptr_does_not_double_free():
+    d = xgtpsa.Descriptor(2, 3)
+    t1 = d.var(1)
+    t1_ref = weakref.ref(t1)
+    t2 = xgtpsa.Tpsa.from_ptr(t1._ptr, d)
+
+    del t2
+    gc.collect()
+
+    assert t1_ref() is t1
+    assert t1.grad() == [1.0, 0.0]
+
+    del t1
+    gc.collect()
+
+    assert t1_ref() is None

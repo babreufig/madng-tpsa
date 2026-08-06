@@ -51,6 +51,9 @@ include = [
 [project.entry-points.xobjects]
 build_info = "xgtpsa.xobjects_hook:get_build_info"
 
+[tool.pytest]
+filterwarnings = ["error"]
+
 [tool.ruff]
 exclude = ["madng"]
 line-length = 100
@@ -66,6 +69,7 @@ extend-select = [
     "D",  # pydocstyle rules
     "I",  # Sort imports properly
     "A",  # Detect shadowed builtins
+    "B",  # Bugbear: finds likely bugs and design problems
     "N",  # enforce naming conventions, e.g. ClassName vs function_name
     "UP",  # Warn if certain things can change due to newer Python versions
     "C4",  # Catch incorrect use of comprehensions, dict, list, etc
@@ -79,15 +83,21 @@ extend-select = [
     "TC",  # Enforce importing certain types in a TYPE_CHECKING block
     "PTH",  # Use pathlib instead of os.path
     "NPY",  # Some numpy-specific things
+    "ARG",  # Unused arguments
+    "EM101",  # Don't use string literals in exceptions
+    "PIE",  # Misc rules, incl. useless kwargs and lambdas
+    "T100",  # Leftover debugger calls
+    "T20",  # Leftover print calls
 ]
 ignore = [
     "D105",  # Missing docstring in magic method
 ]
-pydocstyle.convention = "google"
+pydocstyle.convention = "numpy"
 fixable = ["ALL"]
 unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
+"*.ipynb" = ["T20"]
 "tests/test_*.py" = ["D"]
 
 [tool.ty.src]

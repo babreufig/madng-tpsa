@@ -37,7 +37,11 @@ def _constant(value: float) -> xgtpsa.Tpsa:
     ],
 )
 def test_unary_math_methods_and_numpy_ufuncs(
-    method_name, numpy_func, value, method_expected, numpy_expected
+    method_name,
+    numpy_func,
+    value,
+    method_expected,
+    numpy_expected,
 ):
     t = _constant(value)
     method_result = getattr(t, method_name)()

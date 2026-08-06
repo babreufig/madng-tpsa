@@ -19,7 +19,7 @@ def test_integrate_accepts_index_or_identity_variable():
 
 
 def test_integrate_accepts_labels():
-    d = xgtpsa.Descriptor(vars=['x', 'y'], order=3)
+    d = xgtpsa.Descriptor(variables=['x', 'y'], order=3)
     x, y = d.vars()
     f = x * x + 3.0 * y
 
@@ -52,7 +52,7 @@ def test_derivative_accepts_index_identity_variable_tuple_or_single_monomial_tps
 
 
 def test_derivative_accepts_labels():
-    d = xgtpsa.Descriptor(vars=['x', 'y'], order=3, params=['k'])
+    d = xgtpsa.Descriptor(variables=['x', 'y'], order=3, params=['k'])
     x = d.var('x')
     y = d.var('y')
     k = d.param('k')
@@ -67,11 +67,11 @@ def test_derivative_rejects_invalid_monomials():
     d = xgtpsa.Descriptor(2, 2)
     x, y = d.vars()
 
-    with pytest.raises(ValueError, match='positive order'):
+    with pytest.raises(ValueError, match='Derivative monomial must have positive order'):
         x.derivative((0, 0))
-    with pytest.raises(ValueError, match='length'):
+    with pytest.raises(ValueError, match='Derivative monomial must have length'):
         x.derivative((1,))
-    with pytest.raises(ValueError, match='not valid'):
+    with pytest.raises(ValueError, match='Derivative monomial is not valid'):
         x.derivative((3, 0))
     with pytest.raises(ValueError, match='exactly one'):
         x.derivative(x + y)

@@ -23,6 +23,7 @@ A descriptor is created with functions such as:
 ```c
 const desc_t* mad_desc_newv(int nv, ord_t mo);
 const desc_t* mad_desc_newvp(int nv, ord_t mo, int np_, ord_t po_);
+const desc_t* mad_desc_newvpo(int nv, ord_t mo, int np_, ord_t po_, const ord_t no_[]);
 ```
 
 Conceptually, a descriptor holds:
@@ -32,6 +33,7 @@ Conceptually, a descriptor holds:
 - $nn = nv + np$: total monomial length.
 - `mo`: maximum polynomial order.
 - `po`: maximum combined parameter order.
+- `no_`: optional per-variable/per-parameter maximum orders.
 - monomial tables and lookup structures used to map monomials to coefficient
   indexes.
 
@@ -44,6 +46,14 @@ The descriptor owns the indexing rules. Functions such as `mad_desc_idxm`,
 `mad_desc_mono`, and `mad_desc_isvalidm` convert between monomial descriptions
 and internal coefficient indexes, or check whether a monomial is representable in
 the descriptor.
+
+The descriptor constructors differ only in how much structure they specify:
+
+| Function | Description |
+| --- | --- |
+| `const desc_t* mad_desc_newv(int nv, ord_t mo)` | Create a descriptor with `nv` variables and maximum total order `mo`. All variables may appear up to order `mo`. |
+| `const desc_t* mad_desc_newvp(int nv, ord_t mo, int np_, ord_t po_)` | Create a descriptor with `nv` variables, `np_` parameters, maximum total order `mo`, and maximum combined parameter order `po_`. Parameters are appended after variables. |
+| `const desc_t* mad_desc_newvpo(int nv, ord_t mo, int np_, ord_t po_, const ord_t no_[])` | Create a descriptor with explicit per-variable/per-parameter maximum orders. The `no_` array has length `nv + np_`; variable limits come first, then parameter limits. MAD-NG raises `mo` to at least the maximum entry in `no_`, and raises `po_` to at least the maximum parameter entry. |
 
 MAD-NG reuses equivalent descriptors internally. A TPSA object keeps a pointer to
 its descriptor, and TPSA objects should only be combined when their descriptors

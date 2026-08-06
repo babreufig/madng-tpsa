@@ -6,7 +6,7 @@ import xgtpsa
 
 
 def _polynomial():
-    desc = xgtpsa.Descriptor(vars=['x', 'y'], order=2)
+    desc = xgtpsa.Descriptor(variables=['x', 'y'], order=2)
     t = desc.zero()
     t.from_dict({(0, 0): -6.0, (1, 0): 2.0, (0, 2): 3.0})
     return desc, t
@@ -52,5 +52,5 @@ def test_format_polynomial_rejects_different_descriptor():
 def test_format_polynomial_rejects_unknown_style():
     _, t = _polynomial()
 
-    with pytest.raises(ValueError, match='style'):
+    with pytest.raises(ValueError, match='Style'):
         t.format(style='bad')
