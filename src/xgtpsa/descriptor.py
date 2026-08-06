@@ -14,8 +14,8 @@ same Python ``Descriptor`` object for the same C descriptor pointer.
 from __future__ import annotations
 
 import warnings
-import weakref
 from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple
+from weakref import WeakValueDictionary
 
 from . import _cffi
 from ._cffi import ffi, lib
@@ -42,13 +42,11 @@ class Descriptor:
     three, where the last entry is the parameter order.
     """
 
-    _instances_by_ptr: ClassVar[weakref.WeakValueDictionary[int, Descriptor]] = (
-        weakref.WeakValueDictionary()
-    )
+    _instances_by_ptr: ClassVar[WeakValueDictionary[int, Descriptor]] = WeakValueDictionary()
     _ptr: Any
     var_labels: tuple[str, ...]
     param_labels: tuple[str, ...]
-    _tpsas: weakref.WeakValueDictionary[int, Tpsa]
+    _tpsas: WeakValueDictionary[int, Tpsa]
 
     __slots__ = ('_ptr', 'param_labels', 'var_labels', '_tpsas', '__weakref__')
 
@@ -178,7 +176,7 @@ class Descriptor:
         descriptor._ptr = ptr
         descriptor.var_labels = tuple(var_labels)
         descriptor.param_labels = tuple(param_labels)
-        descriptor._tpsas = weakref.WeakValueDictionary()
+        descriptor._tpsas = WeakValueDictionary()
         cls._instances_by_ptr[key] = descriptor
 
         return descriptor
