@@ -48,8 +48,9 @@ class Descriptor:
     _ptr: Any
     var_labels: tuple[str, ...]
     param_labels: tuple[str, ...]
+    _tpsas: weakref.WeakValueDictionary[int, Tpsa]
 
-    __slots__ = ('_ptr', 'param_labels', 'var_labels', '__weakref__')
+    __slots__ = ('_ptr', 'param_labels', 'var_labels', '_tpsas', '__weakref__')
 
     def __new__(
         cls,
@@ -177,6 +178,7 @@ class Descriptor:
         descriptor._ptr = ptr
         descriptor.var_labels = tuple(var_labels)
         descriptor.param_labels = tuple(param_labels)
+        descriptor._tpsas = weakref.WeakValueDictionary()
         cls._instances_by_ptr[key] = descriptor
 
         return descriptor

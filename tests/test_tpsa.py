@@ -1,5 +1,8 @@
 """Tests for TPSA series."""
 
+import gc
+import weakref
+
 import numpy as np
 import pytest
 
@@ -349,3 +352,41 @@ def test_params_unpack_all_identity_seeds():
 
     assert k1.param_grad() == [1, 0]
     assert k2.param_grad() == [0, 1]
+
+
+def test_from_ptr_returns_same_object():
+    d = xgtpsa.Descriptor(2, 3)
+    t1 = d.var(1)
+    t2 = xgtpsa.Tpsa.from_ptr(t1._ptr, d)
+
+    assert t2 is t1
+
+
+def test_from_ptr_raises_for_unknown_pointer():
+    d = xgtpsa.Descriptor(2, 3)
+    t1 = d.var(1)
+    ptr = t1._ptr
+
+    del t1
+    gc.collect()
+
+    with pytest.raises(ValueError, match='No live Tpsa found'):
+        xgtpsa.Tpsa.from_ptr(ptr, d)
+
+
+def test_from_ptr_does_not_double_free():
+    d = xgtpsa.Descriptor(2, 3)
+    t1 = d.var(1)
+    t1_ref = weakref.ref(t1)
+    t2 = xgtpsa.Tpsa.from_ptr(t1._ptr, d)
+
+    del t2
+    gc.collect()
+
+    assert t1_ref() is t1
+    assert t1.grad() == [1.0, 0.0]
+
+    del t1
+    gc.collect()
+
+    assert t1_ref() is None

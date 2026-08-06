@@ -23,7 +23,7 @@ Numeric = int | float
 class Tpsa:
     """A truncated power series in the algebraic space defined by a descriptor."""
 
-    __slots__ = ('_descriptor', '_ptr')
+    __slots__ = ('_descriptor', '_ptr', '__weakref__')
 
     def __init__(self, descriptor: Descriptor, order: int | None = None) -> None:
         """Create a zero series on ``descriptor``."""
@@ -32,17 +32,58 @@ class Tpsa:
 
         self._descriptor = descriptor
         self._ptr = lib().mad_tpsa_newd(descriptor.ptr, order)
+        descriptor._tpsas[int(ffi().cast('uintptr_t', self._ptr))] = self
 
     @classmethod
-    def from_ptr(cls, ptr: Any, descriptor: Descriptor | None = None) -> Tpsa:
-        """Wrap an existing low-level TPSA pointer."""
-        if descriptor is None:
+    def from_ptr(
+        cls, ptr: Any, descriptor: Descriptor | None = None, *, owns: bool = False
+    ) -> Tpsa:
+        """Return the interned ``Tpsa`` for a raw C pointer.
+
+        If a live ``Tpsa`` already wraps ``ptr`` it is returned directly, so
+        that at most one Python object exists per C allocation, preventing a
+        use-after-free if two owners existed for the same pointer.
+
+        Parameters
+        ----------
+        ptr:
+            Raw CFFI TPSA pointer.
+        descriptor:
+            Descriptor that owns this TPSA. When omitted it is inferred from
+            the pointer via ``mad_tpsa_desc``. Required if ``owns`` is False.
+        owns:
+            Set it to ``True`` only when ``ptr`` points to a freshly allocated
+            C object that has no Python wrapper yet, i.e. the call site created
+            the allocation and is handing ownership. The default ``False``
+            treats an unknown pointer as a bug and will raise.
+        """
+        key = int(ffi().cast('uintptr_t', ptr))
+
+        if descriptor is not None:
+            existing = descriptor._tpsas.get(key)
+            if existing is not None:
+                return existing
+            if not owns:
+                message = (
+                    'No live Tpsa found for the given pointer. '
+                    'Pass owns=True to wrap a freshly allocated pointer.'
+                )
+                raise ValueError(message)
+        elif not owns:
+            message = 'A descriptor must be provided if owns is False.'
+            raise ValueError(message)
+        else:
             from .descriptor import Descriptor
 
             descriptor = Descriptor.from_ptr(lib().mad_tpsa_desc(ptr))
+            existing = descriptor._tpsas.get(key)
+            if existing is not None:
+                return existing
+
         t = cls.__new__(cls)
         t._descriptor = descriptor
         t._ptr = ptr
+        descriptor._tpsas[key] = t
         return t
 
     def __del__(self) -> None:
