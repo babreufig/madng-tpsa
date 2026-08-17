@@ -6,11 +6,11 @@ import numpy as np
 import pytest
 import scipy.special
 
-import xgtpsa
+import madng_tpsa
 
 
-def _constant(value: float) -> xgtpsa.Tpsa:
-    return xgtpsa.Descriptor(1, 3).constant(value)
+def _constant(value: float) -> madng_tpsa.Tpsa:
+    return madng_tpsa.Descriptor(1, 3).constant(value)
 
 
 @pytest.mark.parametrize(
@@ -55,7 +55,7 @@ def test_unary_math_methods_and_numpy_ufuncs(
 
 
 def test_norm_and_unit():
-    d = xgtpsa.Descriptor(1, 2)
+    d = madng_tpsa.Descriptor(1, 2)
     t = d.var(1, -2.0)
     t.set((2,), -3.0)
 
@@ -69,11 +69,11 @@ def test_norm_and_unit():
 
 def test_unit_rejects_zero_constant_part():
     with pytest.raises(ZeroDivisionError, match='zero constant part'):
-        xgtpsa.Descriptor(1, 2).var(1).unit()
+        madng_tpsa.Descriptor(1, 2).var(1).unit()
 
 
 def test_power_uses_tpsa_integer_and_float_paths():
-    d = xgtpsa.Descriptor(1, 3)
+    d = madng_tpsa.Descriptor(1, 3)
     x = d.var(1, 2.0)
     y = d.var(1, 3.0)
 
@@ -83,7 +83,7 @@ def test_power_uses_tpsa_integer_and_float_paths():
 
 
 def test_selected_math_derivatives():
-    d = xgtpsa.Descriptor(1, 3)
+    d = madng_tpsa.Descriptor(1, 3)
     x = d.var(1, 2.0)
 
     assert x.exp().grad() == pytest.approx([math.exp(2.0)])
@@ -123,7 +123,7 @@ def test_scipy_special_methods_and_ufuncs(method_name, special_func, value, expe
     ],
 )
 def test_numpy_binary_ufuncs(numpy_func, left, right, expected):
-    d = xgtpsa.Descriptor(1, 3)
+    d = madng_tpsa.Descriptor(1, 3)
     x = d.var(1, 2.0)
 
     left_arg = x if left == 'x' else left
@@ -133,7 +133,7 @@ def test_numpy_binary_ufuncs(numpy_func, left, right, expected):
 
 
 def test_hypot3_method():
-    d = xgtpsa.Descriptor(1, 3)
+    d = madng_tpsa.Descriptor(1, 3)
     x = d.var(1, 2.0)
 
     assert x.hypot3(3.0, 6.0).const_part == pytest.approx(7.0)
@@ -147,6 +147,6 @@ def test_hypot3_method():
     ],
 )
 def test_numpy_sign_ufuncs(numpy_func, expected):
-    x = xgtpsa.Descriptor(1, 3).var(1, 2.0)
+    x = madng_tpsa.Descriptor(1, 3).var(1, 2.0)
 
     assert numpy_func(x).const_part == pytest.approx(expected)

@@ -1,7 +1,7 @@
-"""Convenience functions for obtaining Xgtpsa library and headers.
+"""Convenience functions for obtaining MAD-NG TPSA library and headers.
 
-The build script of the package puts the shared library in ``src/xgtpsa/lib`` and copies the
-MAD-NG GTPSA public API headers in ``src/xgtpsa/include``.
+The build script of the package puts the shared library in ``src/madng_tpsa/lib``
+and copies the MAD-NG GTPSA public API headers in ``src/madng_tpsa/include``.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ def _library_name() -> str:
         case 'linux':
             return f'lib{LIB_BASENAME}.so'
 
-    raise RuntimeError(f'Platform {sys.platform} not supported for Xgtpsa')
+    raise RuntimeError(f'Platform {sys.platform} not supported for MAD-NG TPSA')
 
 
 def core_library() -> str:

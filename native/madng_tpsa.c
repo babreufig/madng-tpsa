@@ -1,4 +1,4 @@
-#include "xgtpsa.h"
+#include "madng_tpsa.h"
 
 #include "mad_desc_impl.h"
 #include "mad_tpsa_impl.h"
@@ -11,7 +11,7 @@
  * This helper lets the Python wrapper check compatibility first and raise a
  * normal Python exception instead.
  */
-int xgtpsa_check_tpsa_compatibility(const tpsa_t *left, const tpsa_t *right)
+int madng_tpsa_check_tpsa_compatibility(const tpsa_t *left, const tpsa_t *right)
 {
   if (!left || !right) {
     return 0;
@@ -27,7 +27,7 @@ int xgtpsa_check_tpsa_compatibility(const tpsa_t *left, const tpsa_t *right)
  * monomial with coefficient 1. Return -1 when the series is not an identity
  * variable.
  */
-int xgtpsa_tpsa_variable_index(const tpsa_t *series)
+int madng_tpsa_tpsa_variable_index(const tpsa_t *series)
 {
   if (!series || series->coef[0] != 0 || series->lo != 1 || series->hi != 1) {
     return -1;
@@ -68,7 +68,7 @@ int xgtpsa_tpsa_variable_index(const tpsa_t *series)
  * non-constant monomial, has more than one non-constant monomial, or the output
  * buffer length does not match the descriptor.
  */
-int xgtpsa_tpsa_single_monomial(
+int madng_tpsa_tpsa_single_monomial(
     const tpsa_t *series,
     int monomial_len,
     ord_t monomial_orders[]

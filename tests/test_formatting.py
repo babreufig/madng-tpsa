@@ -2,11 +2,11 @@
 
 import pytest
 
-import xgtpsa
+import madng_tpsa
 
 
 def _polynomial():
-    desc = xgtpsa.Descriptor(variables=['x', 'y'], order=2)
+    desc = madng_tpsa.Descriptor(variables=['x', 'y'], order=2)
     t = desc.zero()
     t.from_dict({(0, 0): -6.0, (1, 0): 2.0, (0, 2): 3.0})
     return desc, t
@@ -43,7 +43,7 @@ def test_format_polynomial_as_table():
 
 def test_format_polynomial_rejects_different_descriptor():
     desc, _ = _polynomial()
-    other = xgtpsa.Descriptor(1, 2).zero()
+    other = madng_tpsa.Descriptor(1, 2).zero()
 
     with pytest.raises(ValueError, match='different descriptor'):
         desc.format_polynomial(other)

@@ -7,9 +7,10 @@ requires = [
 ]
 
 [project]
-name = "xgtpsa"
+name = "madng-tpsa"
 authors = [
     {name = "Bernardo Abreu Figueiredo", email = "bernardo.abreu.figueiredo@cern.ch"},
+    {name = "Laurent Deniau", email = "laurent.deniau@cern.ch"},
     {name = "Szymon Łopaciuk", email = "szymon.lopaciuk@cern.ch"},
 ]
 version = "0.1.0"
@@ -33,7 +34,7 @@ dev = [
 ]
 
 [tool.scikit-build]
-wheel.packages = ["src/xgtpsa"]
+wheel.packages = ["src/madng_tpsa"]
 cmake.version = ">=3.18"
 build-dir = "build/{wheel_tag}"
 
@@ -49,7 +50,7 @@ include = [
 ]
 
 [project.entry-points.xobjects]
-build_info = "xgtpsa.xobjects_hook:get_build_info"
+build_info = "madng_tpsa.xobjects_hook:get_build_info"
 
 [tool.pytest]
 filterwarnings = ["error"]

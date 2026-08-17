@@ -1,11 +1,11 @@
-"""xgtpsa: Python bindings to the GTPSA engine of MAD-NG.
+"""madng_tpsa: Python bindings to the GTPSA engine of MAD-NG.
 
 Truncated Power Series Algebra: build a descriptor (how many variables, to which
 order, plus optional parameters), seed identity series on it and perform
 algebraic operations. The coefficients are the derivatives.
 
-    import xgtpsa
-    d = xgtpsa.Descriptor(2, 3)          # 2 variables, order 3
+    import madng_tpsa
+    d = madng_tpsa.Descriptor(2, 3)          # 2 variables, order 3
     x = d.var(1, 0.5)           # x, expanded around 0.5
     y = d.var(2)
     f = x * x + 2.0 * y

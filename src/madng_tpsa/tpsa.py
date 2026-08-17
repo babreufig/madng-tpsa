@@ -269,7 +269,7 @@ class Tpsa:
 
         if isinstance(variable, Tpsa):
             self._check_compatible(variable)
-            variable_index = lib().xgtpsa_tpsa_variable_index(variable._ptr)
+            variable_index = lib().madng_tpsa_tpsa_variable_index(variable._ptr)
             if variable_index >= 1:
                 lib().mad_tpsa_deriv(self._ptr, result._ptr, variable_index)
                 return result
@@ -338,7 +338,7 @@ class Tpsa:
 
     def _check_compatible(self, other: Tpsa) -> None:
         """Raise if ``other`` cannot be combined with this series."""
-        if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
+        if not lib().madng_tpsa_check_tpsa_compatibility(self._ptr, other._ptr):
             message = 'Incompatible TPSA descriptors'
             raise ValueError(message)
 
@@ -354,7 +354,7 @@ class Tpsa:
         """Return a validated 1-based variable/parameter index."""
         if isinstance(variable, Tpsa):
             self._check_compatible(variable)
-            variable_index = lib().xgtpsa_tpsa_variable_index(variable._ptr)
+            variable_index = lib().madng_tpsa_tpsa_variable_index(variable._ptr)
             if variable_index < 0:
                 message = 'Variable must be a TPSA identity variable with coefficient 1'
                 raise ValueError(message)
@@ -371,7 +371,7 @@ class Tpsa:
         if isinstance(variable, Tpsa):
             self._check_compatible(variable)
             monomial_arr = ffi().new('unsigned char[]', self.descriptor.monomial_length)
-            if not lib().xgtpsa_tpsa_single_monomial(
+            if not lib().madng_tpsa_tpsa_single_monomial(
                 variable._ptr,
                 self.descriptor.monomial_length,
                 monomial_arr,
@@ -395,7 +395,7 @@ class Tpsa:
 
     def equals(self, other: Tpsa, tol: Numeric = 0.0) -> bool:
         """Return whether this series and ``other`` have matching coefficients."""
-        if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
+        if not lib().madng_tpsa_check_tpsa_compatibility(self._ptr, other._ptr):
             return False
         return bool(lib().mad_tpsa_equ(self._ptr, other._ptr, float(tol)))
 
@@ -447,7 +447,7 @@ class Tpsa:
     def __pow__(self, other: Tpsa | Numeric) -> Tpsa:
         result = self.descriptor.zero()
         if isinstance(other, Tpsa):
-            if not lib().xgtpsa_check_tpsa_compatibility(self._ptr, other._ptr):
+            if not lib().madng_tpsa_check_tpsa_compatibility(self._ptr, other._ptr):
                 message = 'Incompatible TPSA descriptors'
                 raise ValueError(message)
             lib().mad_tpsa_pow(self._ptr, other._ptr, result._ptr)

@@ -2,11 +2,11 @@
 
 import pytest
 
-import xgtpsa
+import madng_tpsa
 
 
 def test_integrate_accepts_index_or_identity_variable():
-    d = xgtpsa.Descriptor(2, 3)
+    d = madng_tpsa.Descriptor(2, 3)
     x, y = d.vars()
     f = x * x + 3.0 * y
 
@@ -19,7 +19,7 @@ def test_integrate_accepts_index_or_identity_variable():
 
 
 def test_integrate_accepts_labels():
-    d = xgtpsa.Descriptor(variables=['x', 'y'], order=3)
+    d = madng_tpsa.Descriptor(variables=['x', 'y'], order=3)
     x, y = d.vars()
     f = x * x + 3.0 * y
 
@@ -28,7 +28,7 @@ def test_integrate_accepts_labels():
 
 
 def test_integrate_rejects_non_identity_tpsa_variable():
-    d = xgtpsa.Descriptor(1, 2)
+    d = madng_tpsa.Descriptor(1, 2)
     x = d.var(1)
 
     with pytest.raises(ValueError, match='identity variable'):
@@ -36,7 +36,7 @@ def test_integrate_rejects_non_identity_tpsa_variable():
 
 
 def test_derivative_accepts_index_identity_variable_tuple_or_single_monomial_tpsa():
-    d = xgtpsa.Descriptor(2, 3)
+    d = madng_tpsa.Descriptor(2, 3)
     x, y = d.vars()
     f = x * x * y
 
@@ -52,7 +52,7 @@ def test_derivative_accepts_index_identity_variable_tuple_or_single_monomial_tps
 
 
 def test_derivative_accepts_labels():
-    d = xgtpsa.Descriptor(variables=['x', 'y'], order=3, params=['k'])
+    d = madng_tpsa.Descriptor(variables=['x', 'y'], order=3, params=['k'])
     x = d.var('x')
     y = d.var('y')
     k = d.param('k')
@@ -64,7 +64,7 @@ def test_derivative_accepts_labels():
 
 
 def test_derivative_rejects_invalid_monomials():
-    d = xgtpsa.Descriptor(2, 2)
+    d = madng_tpsa.Descriptor(2, 2)
     x, y = d.vars()
 
     with pytest.raises(ValueError, match='Derivative monomial must have positive order'):
@@ -78,7 +78,7 @@ def test_derivative_rejects_invalid_monomials():
 
 
 def test_poisson_bracket_uses_canonical_pairs():
-    d = xgtpsa.Descriptor(2, 2)
+    d = madng_tpsa.Descriptor(2, 2)
     q, p = d.vars()
 
     assert q.poisson_bracket(p).const_part == pytest.approx(1.0)
@@ -88,7 +88,7 @@ def test_poisson_bracket_uses_canonical_pairs():
 
 
 def test_poisson_bracket_validates_num_pairs():
-    d = xgtpsa.Descriptor(2, 2)
+    d = madng_tpsa.Descriptor(2, 2)
     q, p = d.vars()
 
     with pytest.raises(ValueError, match='num_pairs'):

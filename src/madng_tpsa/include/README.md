@@ -1,10 +1,10 @@
 # GTPSA MAD-NG API notes
 
-This folder is automatically populated by the build process (`pip install -e path/to/xgtpsa`)
+This folder is automatically populated by the build process (`pip install -e path/to/madng_tpsa`)
 and contains the patched GTPSA public headers from MAD-NG.
 
 These notes collect practical information about the subset of the MAD-NG GTPSA API
-that xgtpsa uses and exposes.
+that madng_tpsa uses and exposes.
 
 ## Descriptor
 
@@ -117,7 +117,7 @@ $a = 0$ and $b = 5$.
 | `ord_t mad_tpsa_ord(const tpsa_t *t, log_t hi_)` | Return the active maximum order, or the highest currently non-zero order when `hi_` is true. |
 | `log_t mad_tpsa_isnul(const tpsa_t *t)` | Test whether the series is zero. |
 | `log_t mad_tpsa_isval(const tpsa_t *t)` | Test whether the series contains only a constant coefficient. |
-| `void mad_tpsa_clear(tpsa_t *t)` | Clear all coefficients. xgtpsa uses this before loading coefficients from a dictionary. |
+| `void mad_tpsa_clear(tpsa_t *t)` | Clear all coefficients. madng_tpsa uses this before loading coefficients from a dictionary. |
 | `void mad_tpsa_copy(const tpsa_t *t, tpsa_t *r)` | Copy one TPSA into another compatible TPSA. |
 
 ## Coefficients and monomials
@@ -142,7 +142,7 @@ Monomial arrays are 0-based C arrays whose length is $nv + np$.
 ## Arithmetic operators
 
 All binary TPSA operations require compatible descriptors. MAD-NG normally enforces
-this with `ensure(...)`, which terminates the process; xgtpsa checks compatibility
+this with `ensure(...)`, which terminates the process; madng_tpsa checks compatibility
 first at the Python layer where practical.
 
 | Function | Description |
@@ -155,7 +155,7 @@ first at the Python layer where practical.
 | `void mad_tpsa_pow(const tpsa_t *a, const tpsa_t *b, tpsa_t *c)` | Compute TPSA exponentiation $c = a^b$. |
 | `void mad_tpsa_powi(const tpsa_t *a, int n, tpsa_t *c)` | Compute integer power $c = a^n$. |
 | `void mad_tpsa_pown(const tpsa_t *a, num_t v, tpsa_t *c)` | Compute scalar real power $c = a^v$. |
-| `void mad_tpsa_axpb(num_t a, const tpsa_t *x, num_t b, tpsa_t *r)` | Compute the affine scalar/TPSA expression $r = ax + b$. xgtpsa uses this for scalar addition and subtraction. |
+| `void mad_tpsa_axpb(num_t a, const tpsa_t *x, num_t b, tpsa_t *r)` | Compute the affine scalar/TPSA expression $r = ax + b$. madng_tpsa uses this for scalar addition and subtraction. |
 
 ## Scalar helper operations
 
@@ -167,7 +167,7 @@ details of arithmetic operators, not currently separate public methods.
 | `void mad_tpsa_acc(const tpsa_t *a, num_t v, tpsa_t *c)` | Accumulate $c \leftarrow c + va$. Aliasing is supported. |
 | `void mad_tpsa_scl(const tpsa_t *a, num_t v, tpsa_t *c)` | Compute $c = va$. |
 | `void mad_tpsa_divn(const tpsa_t *a, num_t v, tpsa_t *c)` | Compute $c = a/v$. |
-| `void mad_tpsa_inv(const tpsa_t *a, num_t v, tpsa_t *c)` | Compute $c = v/a$. xgtpsa uses this for reflected scalar division. |
+| `void mad_tpsa_inv(const tpsa_t *a, num_t v, tpsa_t *c)` | Compute $c = v/a$. madng_tpsa uses this for reflected scalar division. |
 | `void mad_tpsa_invsqrt(const tpsa_t *a, num_t v, tpsa_t *c)` | Compute $c = v/\sqrt{a}$. |
 
 ## Elementary math functions
@@ -178,7 +178,7 @@ constant part and propagating the truncated series terms.
 | Function | Description |
 | --- | --- |
 | `num_t mad_tpsa_nrm(const tpsa_t *a)` | Return the sum of absolute values of stored coefficients. This is a coefficient norm, not a Euclidean norm. |
-| `void mad_tpsa_unit(const tpsa_t *a, tpsa_t *c)` | Normalize by the magnitude/sign of the constant coefficient. xgtpsa rejects zero constant part before calling this. |
+| `void mad_tpsa_unit(const tpsa_t *a, tpsa_t *c)` | Normalize by the magnitude/sign of the constant coefficient. madng_tpsa rejects zero constant part before calling this. |
 | `void mad_tpsa_abs(const tpsa_t *a, tpsa_t *c)` | Absolute value branch determined by the constant coefficient. |
 | `void mad_tpsa_sqrt(const tpsa_t *a, tpsa_t *c)` | Square root of a TPSA. |
 | `void mad_tpsa_exp(const tpsa_t *a, tpsa_t *c)` | Exponential. |
@@ -223,13 +223,13 @@ intermediate results are projected back to a real TPSA.
 | `void mad_tpsa_erfc(const tpsa_t *a, tpsa_t *c)` | Complementary error function. |
 | `void mad_tpsa_erfcx(const tpsa_t *a, tpsa_t *c)` | Scaled complementary error function, related to $\mathrm{wf}(ix)$. |
 | `void mad_tpsa_erfi(const tpsa_t *a, tpsa_t *c)` | Imaginary error function, implemented through a complex intermediate. |
-| `void mad_tpsa_wf(const tpsa_t *a, tpsa_t *c)` | Faddeeva function $w(z) = \exp(-z^2)\mathrm{erfc}(-iz)$. In xgtpsa this is exposed as `wofz`; for real TPSAs it returns the real part of SciPy's complex-valued `scipy.special.wofz`. |
+| `void mad_tpsa_wf(const tpsa_t *a, tpsa_t *c)` | Faddeeva function $w(z) = \exp(-z^2)\mathrm{erfc}(-iz)$. In madng_tpsa this is exposed as `wofz`; for real TPSAs it returns the real part of SciPy's complex-valued `scipy.special.wofz`. |
 
 ## Binary and ternary math functions
 
 | Function | Description |
 | --- | --- |
-| `void mad_tpsa_atan2(const tpsa_t *y, const tpsa_t *x, tpsa_t *r)` | Compute $r = \mathrm{atan2}(y, x)$. xgtpsa lifts scalar operands to constant TPSAs before calling this. |
+| `void mad_tpsa_atan2(const tpsa_t *y, const tpsa_t *x, tpsa_t *r)` | Compute $r = \mathrm{atan2}(y, x)$. madng_tpsa lifts scalar operands to constant TPSAs before calling this. |
 | `void mad_tpsa_hypot(const tpsa_t *x, const tpsa_t *y, tpsa_t *r)` | Compute $r = \sqrt{x^2 + y^2}$. |
 | `void mad_tpsa_hypot3(const tpsa_t *x, const tpsa_t *y, const tpsa_t *z, tpsa_t *r)` | Compute $r = \sqrt{x^2 + y^2 + z^2}$. |
 
@@ -243,13 +243,13 @@ and may refer to ordinary variables or appended parameters unless otherwise note
 | `void mad_tpsa_integ(const tpsa_t *a, tpsa_t *c, idx_t iv)` | Formal indefinite integral of `a` with respect to variable/parameter index `iv`. The integration constant is zero. |
 | `void mad_tpsa_deriv(const tpsa_t *a, tpsa_t *c, idx_t iv)` | First partial derivative with respect to variable/parameter index `iv`. |
 | `void mad_tpsa_derivm(const tpsa_t *a, tpsa_t *c, ssz_t n, const ord_t m[])` | Higher or mixed partial derivative. The monomial `m` gives derivative orders; for example $(2, 1)$ means $\partial^3/(\partial x^2\,\partial y)$ in a two-variable descriptor. |
-| `void mad_tpsa_poisbra(const tpsa_t *a, const tpsa_t *b, tpsa_t *c, int nv)` | Poisson bracket $[a,b] = \sum_i \partial a/\partial q_i\,\partial b/\partial p_i - \partial a/\partial p_i\,\partial b/\partial q_i$, using canonical variable pairs $(q_1,p_1), (q_2,p_2), \ldots$ stored as indices $(1,2), (3,4), \ldots$. Passing $nv = 0$ uses all available variable pairs; otherwise MAD-NG uses $nv/2$ pairs. xgtpsa exposes this as `num_pairs`, validates $0 < 2\,\mathrm{num\_pairs} \le \mathrm{num\_vars}$, and passes $2\,\mathrm{num\_pairs}$ to C. |
+| `void mad_tpsa_poisbra(const tpsa_t *a, const tpsa_t *b, tpsa_t *c, int nv)` | Poisson bracket $[a,b] = \sum_i \partial a/\partial q_i\,\partial b/\partial p_i - \partial a/\partial p_i\,\partial b/\partial q_i$, using canonical variable pairs $(q_1,p_1), (q_2,p_2), \ldots$ stored as indices $(1,2), (3,4), \ldots$. Passing $nv = 0$ uses all available variable pairs; otherwise MAD-NG uses $nv/2$ pairs. madng_tpsa exposes this as `num_pairs`, validates $0 < 2\,\mathrm{num\_pairs} \le \mathrm{num\_vars}$, and passes $2\,\mathrm{num\_pairs}$ to C. |
 | `void mad_tpsa_taylor(const tpsa_t *a, ssz_t n, const num_t coef[], tpsa_t *c)` | Evaluate $\sum_i \mathrm{coef}[i]\,(a - a_0)^i$, where $a_0$ is the constant part. Coefficients are already Taylor coefficients, so for a scalar function $f$ pass $f(a_0)$, $f'(a_0)$, $f''(a_0)/2!$, and so on. |
 | `void mad_tpsa_taylor_h(const tpsa_t *a, ssz_t n, const num_t coef[], tpsa_t *c)` | Same mathematical result as `mad_tpsa_taylor`, evaluated with Horner's method. MAD-NG's implementation notes say this can be slower because multiplication is always full order. |
 
 ## High-level combined expressions
 
-These functions fuse common expressions into one C call. xgtpsa currently uses
+These functions fuse common expressions into one C call. madng_tpsa currently uses
 only a small subset directly.
 
 | Function | Description |
@@ -259,17 +259,17 @@ only a small subset directly.
 | `void mad_tpsa_axypb(num_t a, const tpsa_t *x, const tpsa_t *y, num_t b, tpsa_t *r)` | Compute $r = axy + b$. |
 | `void mad_tpsa_axypbzpc(num_t a, const tpsa_t *x, const tpsa_t *y, num_t b, const tpsa_t *z, num_t c, tpsa_t *r)` | Compute $r = axy + bz + c$. |
 
-## xgtpsa extensions
+## madng_tpsa extensions
 
-The `xgtpsa.h` header contains small xgtpsa-owned additions to the MAD-NG API.
+The `madng_tpsa.h` header contains small madng_tpsa-owned additions to the MAD-NG API.
 These helpers are compiled into the packaged `libmadng_tpsa` shared library, but
 are not upstream MAD-NG functions.
 
 | Function | Description |
 | --- | --- |
-| `int xgtpsa_check_tpsa_compatibility(const tpsa_t *left, const tpsa_t *right)` | Return non-zero when two TPSA objects are compatible according to MAD-NG's descriptor compatibility rule. |
-| `int xgtpsa_tpsa_variable_index(const tpsa_t *series)` | Return the 1-based variable/parameter index represented by an identity TPSA. Return `-1` if the TPSA is not an identity variable with exactly one first-order monomial of coefficient `1`. |
-| `int xgtpsa_tpsa_single_monomial(const tpsa_t *series, int monomial_length, ord_t monomial_orders[])` | Copy the monomial orders from a TPSA that contains exactly one non-constant monomial. Return non-zero on success, or `0` if the series has a constant part, no non-constant monomial, more than one non-constant monomial, or an incompatible output length. |
+| `int madng_tpsa_check_tpsa_compatibility(const tpsa_t *left, const tpsa_t *right)` | Return non-zero when two TPSA objects are compatible according to MAD-NG's descriptor compatibility rule. |
+| `int madng_tpsa_tpsa_variable_index(const tpsa_t *series)` | Return the 1-based variable/parameter index represented by an identity TPSA. Return `-1` if the TPSA is not an identity variable with exactly one first-order monomial of coefficient `1`. |
+| `int madng_tpsa_tpsa_single_monomial(const tpsa_t *series, int monomial_length, ord_t monomial_orders[])` | Copy the monomial orders from a TPSA that contains exactly one non-constant monomial. Return non-zero on success, or `0` if the series has a constant part, no non-constant monomial, more than one non-constant monomial, or an incompatible output length. |
 
-xgtpsa uses these helpers to validate inputs in Python before calling MAD-NG
+madng_tpsa uses these helpers to validate inputs in Python before calling MAD-NG
 functions that would otherwise terminate through `ensure(...)`.
