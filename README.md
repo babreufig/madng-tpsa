@@ -33,6 +33,10 @@ np.sin(f)  # => Tpsa({(0, 1): 2.0, (2, 0): 1.0, (0, 3): -1.3333333333333333})
 scipy.special.wofz(f)  # => Tpsa({(0, 0): 1.0, (0, 2): -4.0, (2, 1): -4.0})
 ```
 
+Through the `xobjects` entry point declared in `pyproject.toml`, the MAD-NG TPSA C API is
+automatically made available to Xobjects, so projects built on Xobjects can reuse it without
+much extra wiring, relying on `madng-tpsa` abstractions in the Python-side API.
+
 ## Build
 
 The project uses scikit-build-core and CMake:
