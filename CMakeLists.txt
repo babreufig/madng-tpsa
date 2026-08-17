@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(xgtpsa LANGUAGES C)
+project(madng_tpsa LANGUAGES C)
 
 # This build follows the MAD-NG platform makefiles where appropriate, but keeps
 # the flags suitable for Python wheels. In particular, use C11, -O3,
@@ -9,7 +9,7 @@ project(xgtpsa LANGUAGES C)
 # serial fallbacks when _OPENMP is not defined.
 
 if(NOT CMAKE_SYSTEM_NAME MATCHES "Linux|Darwin")
-  message(FATAL_ERROR "xgtpsa only supports Linux and macOS")
+  message(FATAL_ERROR "madng_tpsa only supports Linux and macOS")
 endif()
 
 set(MADNG_SRC "${CMAKE_CURRENT_SOURCE_DIR}/madng/src" CACHE PATH "Path to MAD-NG src directory")
@@ -69,7 +69,7 @@ foreach(source_path IN LISTS MADNG_SOURCE_PATHS)
 endforeach()
 
 add_library(madng_tpsa SHARED ${MADNG_TPSA_SOURCES})
-target_sources(madng_tpsa PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native/xgtpsa.c")
+target_sources(madng_tpsa PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native/madng_tpsa.c")
 set_target_properties(madng_tpsa PROPERTIES
   OUTPUT_NAME "madng_tpsa"
   C_STANDARD 11
@@ -84,7 +84,7 @@ set_source_files_properties("${GTPSA_BUILD_SRC}/mad_mem.c" PROPERTIES
 
 target_include_directories(madng_tpsa PRIVATE
   "${GTPSA_BUILD_SRC}"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/xgtpsa/include"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/madng_tpsa/include"
 )
 target_compile_options(madng_tpsa PRIVATE
   -include stdlib.h
@@ -130,23 +130,23 @@ set(MADNG_PUBLIC_HEADERS
 )
 list(TRANSFORM MADNG_PUBLIC_HEADERS PREPEND "${MADNG_SRC}/" OUTPUT_VARIABLE MADNG_PUBLIC_HEADER_PATHS)
 
-set(XGTPSA_SOURCE_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/xgtpsa/lib")
-set(XGTPSA_SOURCE_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/xgtpsa/include")
-set(XGTPSA_PUBLIC_HEADERS "${XGTPSA_SOURCE_INCLUDE_DIR}/xgtpsa.h")
+set(MADNG_TPSA_SOURCE_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/madng_tpsa/lib")
+set(MADNG_TPSA_SOURCE_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/madng_tpsa/include")
+set(MADNG_TPSA_PUBLIC_HEADERS "${MADNG_TPSA_SOURCE_INCLUDE_DIR}/madng_tpsa.h")
 add_custom_command(TARGET madng_tpsa POST_BUILD
-  COMMAND "${CMAKE_COMMAND}" -E make_directory "${XGTPSA_SOURCE_LIB_DIR}"
-  COMMAND "${CMAKE_COMMAND}" -E make_directory "${XGTPSA_SOURCE_INCLUDE_DIR}"
-  COMMAND "${CMAKE_COMMAND}" -E copy "$<TARGET_FILE:madng_tpsa>" "${XGTPSA_SOURCE_LIB_DIR}/$<TARGET_FILE_NAME:madng_tpsa>"
-  COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${MADNG_PUBLIC_HEADER_PATHS} "${XGTPSA_SOURCE_INCLUDE_DIR}"
-  COMMENT "Copying madng_tpsa shared library and MAD-NG headers into src/xgtpsa"
+  COMMAND "${CMAKE_COMMAND}" -E make_directory "${MADNG_TPSA_SOURCE_LIB_DIR}"
+  COMMAND "${CMAKE_COMMAND}" -E make_directory "${MADNG_TPSA_SOURCE_INCLUDE_DIR}"
+  COMMAND "${CMAKE_COMMAND}" -E copy "$<TARGET_FILE:madng_tpsa>" "${MADNG_TPSA_SOURCE_LIB_DIR}/$<TARGET_FILE_NAME:madng_tpsa>"
+  COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${MADNG_PUBLIC_HEADER_PATHS} "${MADNG_TPSA_SOURCE_INCLUDE_DIR}"
+  COMMENT "Copying madng_tpsa shared library and MAD-NG headers into src/madng_tpsa"
 )
 
 install(TARGETS madng_tpsa
-  LIBRARY DESTINATION xgtpsa/lib
-  RUNTIME DESTINATION xgtpsa/lib
+  LIBRARY DESTINATION madng_tpsa/lib
+  RUNTIME DESTINATION madng_tpsa/lib
 )
 install(FILES
   ${MADNG_PUBLIC_HEADER_PATHS}
-  ${XGTPSA_PUBLIC_HEADERS}
-  DESTINATION xgtpsa/include
+  ${MADNG_TPSA_PUBLIC_HEADERS}
+  DESTINATION madng_tpsa/include
 )

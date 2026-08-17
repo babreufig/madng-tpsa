@@ -1,25 +1,37 @@
-# xgtpsa - GTPSA (truncated power series) for Python
+# madng-tpsa - GTPSA (truncated power series) for Python
 
-This repository builds `libmadng_tpsa.so` on Linux or `libmadng_tpsa.dylib` on macOS:
-the Generalized Truncated Power Series Algebra engine extracted from MAD-NG, without
-the LuaJIT/MAD application layer. The Python package uses CFFI ABI mode (`dlopen`),
-so importing `xgtpsa` does not compile anything at runtime.
+This repository exposes the features of MAD-NG's GTPSA (Generalised Truncated Power Series
+Algebra) through a Python interface. The package builds `libmadng_tpsa.so` on Linux or
+`libmadng_tpsa.dylib` on macOS, and uses CFFI ABI mode to access the native functionality.
 
 ```python
-import xgtpsa
+import numpy as np
+import scipy
 
-d = xgtpsa.Descriptor(2, 3)
-x = d.var(1, 0.5)
-y = d.var(2)
+from madng_tpsa import Descriptor
+
+d = Descriptor(variables=['x', 'y'], order=3)
+x, y = d.vars()
 f = x * x + 2.0 * y
-f.const_part, f.grad(), f.monomial_coeffs()
+
+# Inspect!
+f  # => Tpsa({(0, 1): 2.0, (2, 0): 1.0})
+f.format()  # => '2 * y + x**2'
+f.format('table')  # => a Rich table showing all coefficients
+
+# Basic operations
+c = d.constant(42)
+c.const_part  # => 42
+f.const_part  # => 0
+
+f.monomial_coeffs()  # => {(0, 1): 2.0, (2, 0): 1.0}
+f.derivative('y')  # => Tpsa({(0, 0): 2.0})
+f.grad()  # => [0, 2]
+
+# Compatible with Numpy protocol
+np.sin(f)  # => Tpsa({(0, 1): 2.0, (2, 0): 1.0, (0, 3): -1.3333333333333333})
+scipy.special.wofz(f)  # => Tpsa({(0, 0): 1.0, (0, 2): -4.0, (2, 1): -4.0})
 ```
-
-Nothing here knows about tracking or xtrack. Consumers can discover the packaged
-native artifacts with:
-
-- `xgtpsa.core_library()` - path to `xgtpsa/lib/libmadng_tpsa.{so,dylib}`
-- `xgtpsa.include_dir()` - path to `xgtpsa/include`
 
 ## Build
 
@@ -32,11 +44,11 @@ python -m build
 ```
 
 `pip install -e .` runs CMake and copies the generated shared library into
-`src/xgtpsa/lib/`, matching the installed wheel layout. MAD-NG headers copied into
-`src/xgtpsa/include/` and platform shared libraries in `src/xgtpsa/lib/` are generated
-artifacts and ignored by Git.
+`src/madng_tpsa/lib/`, matching the installed wheel layout. MAD-NG headers copied into
+`src/madng_tpsa/include/` and platform shared libraries in `src/madng_tpsa/lib/` are generated
+artefacts and ignored by Git.
 
-By default CMake builds from the bundled `madng/src` checkout. To use another MAD-NG
+By default, CMake builds from the bundled `madng/src` checkout. To use another MAD-NG
 source tree:
 
 ```bash

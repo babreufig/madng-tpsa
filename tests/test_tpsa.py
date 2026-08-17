@@ -6,11 +6,11 @@ import weakref
 import numpy as np
 import pytest
 
-import xgtpsa
+import madng_tpsa
 
 
 def test_var_is_an_identity_seed():
-    d = xgtpsa.Descriptor(6, 2)
+    d = madng_tpsa.Descriptor(6, 2)
     t = d.var(2, 0.25)  # variable indices are 1-based
     assert t.const_part == 0.25
     assert t.grad() == [0, 1, 0, 0, 0, 0]
@@ -20,7 +20,7 @@ def test_var_is_an_identity_seed():
 
 
 def test_vars_unpack_all_identity_seeds():
-    d = xgtpsa.Descriptor(4, 2)
+    d = madng_tpsa.Descriptor(4, 2)
     x, px, y, py = d.vars()
 
     assert x.grad() == [1, 0, 0, 0]
@@ -30,7 +30,7 @@ def test_vars_unpack_all_identity_seeds():
 
 
 def test_var_order_uses_descriptor_order_by_default():
-    d = xgtpsa.Descriptor(variables=['a', 'b'], order=4, max_orders=[2, 4])
+    d = madng_tpsa.Descriptor(variables=['a', 'b'], order=4, max_orders=[2, 4])
     a, b = d.vars()
 
     assert a.order == 4
@@ -40,7 +40,7 @@ def test_var_order_uses_descriptor_order_by_default():
 
 
 def test_var_zero_and_param_accept_explicit_order():
-    d = xgtpsa.Descriptor(variables=['a', 'b'], order=4, max_orders=[2, 4, 1], params=['k'])
+    d = madng_tpsa.Descriptor(variables=['a', 'b'], order=4, max_orders=[2, 4, 1], params=['k'])
     zero = d.zero(order=2)
     a = d.var('a', order=2)
     k = d.param('k', order=1)
@@ -57,7 +57,7 @@ def test_var_zero_and_param_accept_explicit_order():
 
 
 def test_var_and_param_labels_can_seed_series():
-    d = xgtpsa.Descriptor(variables=['x', 'y'], order=2, params=['k'])
+    d = madng_tpsa.Descriptor(variables=['x', 'y'], order=2, params=['k'])
     x = d.var('x', 0.5)
     y = d.var('y')
     k = d.param('k', 2.0)
@@ -70,7 +70,7 @@ def test_var_and_param_labels_can_seed_series():
 
 
 def test_vars_can_set_expansion_values():
-    d = xgtpsa.Descriptor(2, 2)
+    d = madng_tpsa.Descriptor(2, 2)
     x, y = d.vars(values=[0.5, 2.0])
 
     assert x.const_part == 0.5
@@ -80,14 +80,14 @@ def test_vars_can_set_expansion_values():
 
 
 def test_vars_values_must_match_num_vars():
-    d = xgtpsa.Descriptor(2, 2)
+    d = madng_tpsa.Descriptor(2, 2)
 
     with pytest.raises(ValueError, match='Values must contain one entry per variable'):
         d.vars(values=[0.5])
 
 
 def test_constant_series():
-    d = xgtpsa.Descriptor(3, 2)
+    d = madng_tpsa.Descriptor(3, 2)
     zero = d.zero()
     const = d.constant(1.5)
 
@@ -107,7 +107,7 @@ def test_constant_series():
 
 
 def test_arithmetic_carries_derivatives():
-    d = xgtpsa.Descriptor(2, 3)
+    d = madng_tpsa.Descriptor(2, 3)
     x = d.var(1, 0.5)
     y = d.var(2, 2.0)
 
@@ -127,7 +127,7 @@ def test_arithmetic_carries_derivatives():
 
 
 def test_addition_paths():
-    d = xgtpsa.Descriptor(2, 2)
+    d = madng_tpsa.Descriptor(2, 2)
     x = d.var(1, 0.5)
     y = d.var(2, 2.0)
 
@@ -144,7 +144,7 @@ def test_addition_paths():
 
 
 def test_subtraction_paths():
-    d = xgtpsa.Descriptor(2, 2)
+    d = madng_tpsa.Descriptor(2, 2)
     x = d.var(1, 0.5)
     y = d.var(2, 2.0)
 
@@ -161,7 +161,7 @@ def test_subtraction_paths():
 
 
 def test_multiplication_paths():
-    d = xgtpsa.Descriptor(2, 2)
+    d = madng_tpsa.Descriptor(2, 2)
     x = d.var(1, 0.5)
     y = d.var(2, 2.0)
 
@@ -179,7 +179,7 @@ def test_multiplication_paths():
 
 
 def test_division_paths():
-    d = xgtpsa.Descriptor(1, 2)
+    d = madng_tpsa.Descriptor(1, 2)
     x = d.var(1, 2.0)
 
     quotient = (x * x) / x
@@ -196,7 +196,7 @@ def test_division_paths():
 
 
 def test_power_and_negation():
-    d = xgtpsa.Descriptor(1, 3)
+    d = madng_tpsa.Descriptor(1, 3)
     x = d.var(1, 0.5)
 
     square = x**2
@@ -215,7 +215,7 @@ def test_power_and_negation():
 
 
 def test_division_by_series():
-    d = xgtpsa.Descriptor(1, 2)
+    d = madng_tpsa.Descriptor(1, 2)
     x = d.var(1, 2.0)
     q = (x * x) / x
     assert q.const_part == pytest.approx(2.0)
@@ -223,25 +223,25 @@ def test_division_by_series():
 
 
 def test_binary_ops_reject_incompatible_descriptors():
-    x = xgtpsa.Descriptor(1, 2).var(1)
-    y = xgtpsa.Descriptor(2, 2).var(1)
+    x = madng_tpsa.Descriptor(1, 2).var(1)
+    y = madng_tpsa.Descriptor(2, 2).var(1)
 
     with pytest.raises(ValueError, match='Incompatible TPSA descriptors'):
         x + y
 
 
 def test_equality_checks_coefficients_and_descriptor_compatibility():
-    d = xgtpsa.Descriptor(1, 2)
+    d = madng_tpsa.Descriptor(1, 2)
     x = d.var(1, 0.5)
 
     assert x == x.copy()
     assert x != x + 1.0
     assert x.equals(x + 1e-15, tol=1e-14)
-    assert x != xgtpsa.Descriptor(2, 2).var(1)
+    assert x != madng_tpsa.Descriptor(2, 2).var(1)
 
 
 def test_copy_is_independent():
-    d = xgtpsa.Descriptor(1, 1)
+    d = madng_tpsa.Descriptor(1, 1)
     x = d.var(1, 1.0)
     c = x.copy()
     x.set_const_part(9.0)
@@ -249,7 +249,7 @@ def test_copy_is_independent():
 
 
 def test_clear_sets_series_to_zero_in_place():
-    d = xgtpsa.Descriptor(2, 2)
+    d = madng_tpsa.Descriptor(2, 2)
     x, y = d.vars(values=[1.0, 2.0])
     t = x * y + 3.0
 
@@ -264,7 +264,7 @@ def test_clear_sets_series_to_zero_in_place():
 
 
 def test_set_and_get_coefficients():
-    d = xgtpsa.Descriptor(2, 2)
+    d = madng_tpsa.Descriptor(2, 2)
     t = d.zero()
     t.set_const_part(1.5)
     t.set((1, 1), -2.0)
@@ -279,7 +279,7 @@ def test_set_and_get_coefficients():
 
 
 def test_get_and_set_reject_invalid_or_out_of_order_monomials():
-    d = xgtpsa.Descriptor(variables=['a', 'b'], order=4, max_orders=[2, 4])
+    d = madng_tpsa.Descriptor(variables=['a', 'b'], order=4, max_orders=[2, 4])
     a = d.var('a', order=2)
 
     assert d.is_valid_monomial((1, 3))
@@ -297,7 +297,7 @@ def test_get_and_set_reject_invalid_or_out_of_order_monomials():
 
 
 def test_monomial_coeffs_skips_zeros_and_tiny_terms():
-    d = xgtpsa.Descriptor(2, 2)
+    d = madng_tpsa.Descriptor(2, 2)
     t = d.zero()
     t.set((1, 0), 1e-20)
     t.set((0, 1), 1.0)
@@ -306,7 +306,7 @@ def test_monomial_coeffs_skips_zeros_and_tiny_terms():
 
 
 def test_to_dict_uses_monomial_coeffs():
-    d = xgtpsa.Descriptor(2, 2)
+    d = madng_tpsa.Descriptor(2, 2)
     t = d.zero()
     t.set((1, 0), 1e-20)
     t.set((0, 1), 1.0)
@@ -316,7 +316,7 @@ def test_to_dict_uses_monomial_coeffs():
 
 
 def test_from_dict_replaces_coefficients_and_round_trips():
-    d = xgtpsa.Descriptor(2, 2)
+    d = madng_tpsa.Descriptor(2, 2)
     original = d.zero()
     original.set_const_part(1.5)
     original.set((1, 0), 2.0)
@@ -333,7 +333,7 @@ def test_from_dict_replaces_coefficients_and_round_trips():
 
 
 def test_param_seed_and_param_grad():
-    d = xgtpsa.Descriptor(2, 2, num_params=2, param_order=1)
+    d = madng_tpsa.Descriptor(2, 2, num_params=2, param_order=1)
     x = d.var(1, 0.5)
     k = d.param(1, 3.0)
 
@@ -347,7 +347,7 @@ def test_param_seed_and_param_grad():
 
 
 def test_params_unpack_all_identity_seeds():
-    d = xgtpsa.Descriptor(2, 2, num_params=2, param_order=1)
+    d = madng_tpsa.Descriptor(2, 2, num_params=2, param_order=1)
     k1, k2 = d.params()
 
     assert k1.param_grad() == [1, 0]
@@ -355,15 +355,15 @@ def test_params_unpack_all_identity_seeds():
 
 
 def test_from_ptr_returns_same_object():
-    d = xgtpsa.Descriptor(2, 3)
+    d = madng_tpsa.Descriptor(2, 3)
     t1 = d.var(1)
-    t2 = xgtpsa.Tpsa.from_ptr(t1._ptr, d)
+    t2 = madng_tpsa.Tpsa.from_ptr(t1._ptr, d)
 
     assert t2 is t1
 
 
 def test_from_ptr_raises_for_unknown_pointer():
-    d = xgtpsa.Descriptor(2, 3)
+    d = madng_tpsa.Descriptor(2, 3)
     t1 = d.var(1)
     ptr = t1._ptr
 
@@ -371,14 +371,14 @@ def test_from_ptr_raises_for_unknown_pointer():
     gc.collect()
 
     with pytest.raises(ValueError, match='No live Tpsa found'):
-        xgtpsa.Tpsa.from_ptr(ptr, d)
+        madng_tpsa.Tpsa.from_ptr(ptr, d)
 
 
 def test_from_ptr_does_not_double_free():
-    d = xgtpsa.Descriptor(2, 3)
+    d = madng_tpsa.Descriptor(2, 3)
     t1 = d.var(1)
     t1_ref = weakref.ref(t1)
-    t2 = xgtpsa.Tpsa.from_ptr(t1._ptr, d)
+    t2 = madng_tpsa.Tpsa.from_ptr(t1._ptr, d)
 
     del t2
     gc.collect()

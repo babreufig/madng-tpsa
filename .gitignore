@@ -6,9 +6,9 @@ dist/
 *.so
 *.so.*
 *.dylib
-src/xgtpsa/lib/*.so
-src/xgtpsa/lib/*.so.*
-src/xgtpsa/lib/*.dylib
+src/madng_tpsa/lib/*.so
+src/madng_tpsa/lib/*.so.*
+src/madng_tpsa/lib/*.dylib
 __pycache__/
 *.py[cod]
 *.sw[op]
