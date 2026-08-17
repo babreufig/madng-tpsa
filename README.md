@@ -38,6 +38,7 @@ scipy.special.wofz(f)  # => Tpsa({(0, 0): 1.0, (0, 2): -4.0, (2, 1): -4.0})
 The project uses scikit-build-core and CMake:
 
 ```bash
+git submodule update --init --recursive
 pip install .
 pip install -e .
 python -m build
