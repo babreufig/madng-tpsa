@@ -476,6 +476,29 @@ class Tpsa:
     def __float__(self) -> float:
         return self.const_part
 
+    # Ordering against a scalar goes through the constant part, the same convention as
+    # __float__. Two series are left unordered on purpose. A knob held as a parameter
+    # sits in line.vars as a series, and xdeps compares it to its float limits.
+    def __lt__(self, other: Numeric) -> bool:
+        if isinstance(other, Tpsa):
+            return NotImplemented
+        return self.const_part < float(other)
+
+    def __le__(self, other: Numeric) -> bool:
+        if isinstance(other, Tpsa):
+            return NotImplemented
+        return self.const_part <= float(other)
+
+    def __gt__(self, other: Numeric) -> bool:
+        if isinstance(other, Tpsa):
+            return NotImplemented
+        return self.const_part > float(other)
+
+    def __ge__(self, other: Numeric) -> bool:
+        if isinstance(other, Tpsa):
+            return NotImplemented
+        return self.const_part >= float(other)
+
     def abs(self) -> Tpsa:
         """Return the TPSA absolute value determined by the constant coefficient."""
         return self._unary_op('mad_tpsa_abs')
