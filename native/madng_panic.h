@@ -1,15 +1,11 @@
 #ifndef _MADNG_PANIC_H
 #define _MADNG_PANIC_H
 
-#include "madng_log.h"
 #include "mad_tpsa.h"
+#include "madng_log.h"
 
 typedef void (*madng_tpsa_unary_fn)(const tpsa_t *input, tpsa_t *output);
-typedef void (*madng_tpsa_binary_fn)(
-    const tpsa_t *left,
-    const tpsa_t *right,
-    tpsa_t *output
-);
+typedef void (*madng_tpsa_binary_fn)(const tpsa_t *left, const tpsa_t *right, tpsa_t *output);
 typedef void (*madng_tpsa_two_output_fn)(
     const tpsa_t *input,
     tpsa_t *first_output,

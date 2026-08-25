@@ -28,41 +28,38 @@ static thread_local char madng_panic_last_message[MADNG_TPSA_ERROR_TEXT_SIZE];
 
 static void madng_panic_copy_error_text(
     char destination[static MADNG_TPSA_ERROR_TEXT_SIZE],
-    const char *source)
-{
-  snprintf(destination, MADNG_TPSA_ERROR_TEXT_SIZE, "%s", source ? source : "");
+    const char *source
+) {
+    snprintf(destination, MADNG_TPSA_ERROR_TEXT_SIZE, "%s", source ? source : "");
 }
 
-static void madng_panic_longjmp(const char *location, const char *message)
-{
-  /* The message passed by mad_error is stack-owned, so retain it before jumping. */
-  madng_panic_copy_error_text(madng_panic_last_location, location);
-  madng_panic_copy_error_text(madng_panic_last_message, message);
-  longjmp(madng_panic_environment, 1);
+static void madng_panic_longjmp(const char *location, const char *message) {
+    /* The message passed by mad_error is stack-owned, so retain it before jumping. */
+    madng_panic_copy_error_text(madng_panic_last_location, location);
+    madng_panic_copy_error_text(madng_panic_last_message, message);
+    longjmp(madng_panic_environment, 1);
 }
 
-static void madng_panic_restore_error_handler(void)
-{
-  madng_tpsa_set_error_handler(madng_panic_previous_error_handler);
+static void madng_panic_restore_error_handler(void) {
+    madng_tpsa_set_error_handler(madng_panic_previous_error_handler);
 }
 
 int madng_tpsa_protected_unary_call(
     madng_tpsa_unary_fn function,
     const tpsa_t *input,
     tpsa_t *output
-)
-{
-  /* Always restore the caller's handler, whether MAD-NG returns or panics. */
-  madng_panic_previous_error_handler = madng_tpsa_set_error_handler(madng_panic_longjmp);
+) {
+    /* Always restore the caller's handler, whether MAD-NG returns or panics. */
+    madng_panic_previous_error_handler = madng_tpsa_set_error_handler(madng_panic_longjmp);
 
-  if (setjmp(madng_panic_environment) == 0) {
-    function(input, output);
+    if (setjmp(madng_panic_environment) == 0) {
+        function(input, output);
+        madng_panic_restore_error_handler();
+        return 0;
+    }
+
     madng_panic_restore_error_handler();
-    return 0;
-  }
-
-  madng_panic_restore_error_handler();
-  return 1;
+    return 1;
 }
 
 int madng_tpsa_protected_binary_call(
@@ -70,18 +67,17 @@ int madng_tpsa_protected_binary_call(
     const tpsa_t *left,
     const tpsa_t *right,
     tpsa_t *output
-)
-{
-  madng_panic_previous_error_handler = madng_tpsa_set_error_handler(madng_panic_longjmp);
+) {
+    madng_panic_previous_error_handler = madng_tpsa_set_error_handler(madng_panic_longjmp);
 
-  if (setjmp(madng_panic_environment) == 0) {
-    function(left, right, output);
+    if (setjmp(madng_panic_environment) == 0) {
+        function(left, right, output);
+        madng_panic_restore_error_handler();
+        return 0;
+    }
+
     madng_panic_restore_error_handler();
-    return 0;
-  }
-
-  madng_panic_restore_error_handler();
-  return 1;
+    return 1;
 }
 
 int madng_tpsa_protected_two_output_call(
@@ -89,26 +85,19 @@ int madng_tpsa_protected_two_output_call(
     const tpsa_t *input,
     tpsa_t *first_output,
     tpsa_t *second_output
-)
-{
-  madng_panic_previous_error_handler = madng_tpsa_set_error_handler(madng_panic_longjmp);
+) {
+    madng_panic_previous_error_handler = madng_tpsa_set_error_handler(madng_panic_longjmp);
 
-  if (setjmp(madng_panic_environment) == 0) {
-    function(input, first_output, second_output);
+    if (setjmp(madng_panic_environment) == 0) {
+        function(input, first_output, second_output);
+        madng_panic_restore_error_handler();
+        return 0;
+    }
+
     madng_panic_restore_error_handler();
-    return 0;
-  }
-
-  madng_panic_restore_error_handler();
-  return 1;
+    return 1;
 }
 
-const char *madng_tpsa_last_error_location(void)
-{
-  return madng_panic_last_location;
-}
+const char *madng_tpsa_last_error_location(void) { return madng_panic_last_location; }
 
-const char *madng_tpsa_last_error_message(void)
-{
-  return madng_panic_last_message;
-}
+const char *madng_tpsa_last_error_message(void) { return madng_panic_last_message; }
