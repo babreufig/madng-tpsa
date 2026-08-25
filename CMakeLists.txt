@@ -69,6 +69,7 @@ endforeach()
 
 add_library(madng_tpsa SHARED ${MADNG_TPSA_SOURCES})
 target_sources(madng_tpsa PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/native/madng_panic.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/native/madng_tpsa.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/native/madng_log.c"
 )
@@ -135,7 +136,10 @@ list(TRANSFORM MADNG_PUBLIC_HEADERS PREPEND "${MADNG_SRC}/" OUTPUT_VARIABLE MADN
 
 set(MADNG_TPSA_SOURCE_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/madng_tpsa/lib")
 set(MADNG_TPSA_SOURCE_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/madng_tpsa/include")
-set(MADNG_TPSA_PUBLIC_HEADERS "${MADNG_TPSA_SOURCE_INCLUDE_DIR}/madng_tpsa.h")
+set(MADNG_TPSA_PUBLIC_HEADERS
+  "${MADNG_TPSA_SOURCE_INCLUDE_DIR}/madng_log.h"
+  "${MADNG_TPSA_SOURCE_INCLUDE_DIR}/madng_tpsa.h"
+)
 add_custom_command(TARGET madng_tpsa POST_BUILD
   COMMAND "${CMAKE_COMMAND}" -E make_directory "${MADNG_TPSA_SOURCE_LIB_DIR}"
   COMMAND "${CMAKE_COMMAND}" -E make_directory "${MADNG_TPSA_SOURCE_INCLUDE_DIR}"

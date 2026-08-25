@@ -106,6 +106,33 @@ CDEF = """
     void mad_tpsa_derivm(const void* a, void* c, int n, const unsigned char* m);
     void mad_tpsa_poisbra(const void* a, const void* b, void* c, int nv);
 
+    typedef void (*madng_tpsa_unary_fn)(const void* input, void* output);
+    typedef void (*madng_tpsa_binary_fn)(const void* left, const void* right, void* output);
+    typedef void (*madng_tpsa_two_output_fn)(
+        const void* input,
+        void* first_output,
+        void* second_output
+    );
+    int madng_tpsa_protected_unary_call(
+        madng_tpsa_unary_fn function,
+        const void* input,
+        void* output
+    );
+    int madng_tpsa_protected_binary_call(
+        madng_tpsa_binary_fn function,
+        const void* left,
+        const void* right,
+        void* output
+    );
+    int madng_tpsa_protected_two_output_call(
+        madng_tpsa_two_output_fn function,
+        const void* input,
+        void* first_output,
+        void* second_output
+    );
+    const char* madng_tpsa_last_error_location(void);
+    const char* madng_tpsa_last_error_message(void);
+
     int madng_tpsa_check_tpsa_compatibility(const void* left, const void* right);
     int madng_tpsa_tpsa_variable_index(const void* series);
     int madng_tpsa_tpsa_single_monomial(

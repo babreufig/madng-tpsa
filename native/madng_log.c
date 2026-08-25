@@ -10,7 +10,7 @@
 #include <stdlib.h>
 
 #include "mad_log.h"
-#include "madng_tpsa.h"
+#include "madng_log.h"
 
 int mad_warn_count = 0;
 int mad_trace_level = 0;

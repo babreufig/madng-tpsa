@@ -7,16 +7,7 @@ extern "C" {
 
 #include "mad_tpsa.h"
 
-/*
- * Install a thread-local callback for fatal MAD-NG errors and return the
- * previously installed callback. The callback must not return.
- */
-typedef void (*madng_tpsa_error_handler)(const char *location, const char *message);
-madng_tpsa_error_handler madng_tpsa_set_error_handler(madng_tpsa_error_handler handler);
-
-/*
- * Helper functions for this library.
- */
+/* Helper functions for this library */
 int madng_tpsa_check_tpsa_compatibility(const tpsa_t *left, const tpsa_t *right);
 int madng_tpsa_tpsa_variable_index(const tpsa_t *series);
 int madng_tpsa_tpsa_single_monomial(
