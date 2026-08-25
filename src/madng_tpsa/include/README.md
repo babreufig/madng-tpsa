@@ -261,7 +261,8 @@ only a small subset directly.
 
 ## madng_tpsa extensions
 
-The `madng_tpsa.h` header contains small madng_tpsa-owned additions to the MAD-NG API.
+The `madng_tpsa.h` and `madng_log.h` headers contain madng_tpsa-owned additions to the
+MAD-NG API.
 These helpers are compiled into the packaged `libmadng_tpsa` shared library, but
 are not upstream MAD-NG functions.
 

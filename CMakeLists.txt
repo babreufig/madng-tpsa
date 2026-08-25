@@ -46,7 +46,6 @@ list(REMOVE_ITEM MADNG_SOURCE_PATHS
   "${MADNG_SRC}/mad_fft.c"
   "${MADNG_SRC}/mad_nlopt.c"
 )
-list(APPEND MADNG_SOURCE_PATHS "${MADNG_SRC}/libgtpsa/mad_log.c")
 
 if(EXISTS "${MADNG_SRC}/sse" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
   # Streaming SIMD Extensions (SSE) are x86-only and cannot compile on Apple
@@ -69,10 +68,14 @@ foreach(source_path IN LISTS MADNG_SOURCE_PATHS)
 endforeach()
 
 add_library(madng_tpsa SHARED ${MADNG_TPSA_SOURCES})
-target_sources(madng_tpsa PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native/madng_tpsa.c")
+target_sources(madng_tpsa PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/native/madng_panic.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/native/madng_tpsa.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/native/madng_log.c"
+)
 set_target_properties(madng_tpsa PROPERTIES
   OUTPUT_NAME "madng_tpsa"
-  C_STANDARD 11
+  C_STANDARD 23
   C_STANDARD_REQUIRED ON
   C_EXTENSIONS OFF
   POSITION_INDEPENDENT_CODE ON
@@ -94,6 +97,7 @@ target_compile_options(madng_tpsa PRIVATE
   -O3
   -ftree-vectorize
   -fno-math-errno
+  -fexceptions
   -Wno-misleading-indentation
   -Wno-empty-body
 )
@@ -132,7 +136,10 @@ list(TRANSFORM MADNG_PUBLIC_HEADERS PREPEND "${MADNG_SRC}/" OUTPUT_VARIABLE MADN
 
 set(MADNG_TPSA_SOURCE_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/madng_tpsa/lib")
 set(MADNG_TPSA_SOURCE_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/madng_tpsa/include")
-set(MADNG_TPSA_PUBLIC_HEADERS "${MADNG_TPSA_SOURCE_INCLUDE_DIR}/madng_tpsa.h")
+set(MADNG_TPSA_PUBLIC_HEADERS
+  "${MADNG_TPSA_SOURCE_INCLUDE_DIR}/madng_log.h"
+  "${MADNG_TPSA_SOURCE_INCLUDE_DIR}/madng_tpsa.h"
+)
 add_custom_command(TARGET madng_tpsa POST_BUILD
   COMMAND "${CMAKE_COMMAND}" -E make_directory "${MADNG_TPSA_SOURCE_LIB_DIR}"
   COMMAND "${CMAKE_COMMAND}" -E make_directory "${MADNG_TPSA_SOURCE_INCLUDE_DIR}"

@@ -10,6 +10,7 @@ import scipy.special
 
 from . import _cffi
 from ._cffi import ffi, lib
+from .errors import TpsaError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -313,10 +314,18 @@ class Tpsa:
 
     # --- arithmetic (fresh result on the same descriptor; scalars mix freely) --- #
 
-    def _binop(self, other: Tpsa, fn: str) -> Tpsa:
+    def _binary_op(self, other: Tpsa, fn: str) -> Tpsa:
         self._check_compatible(other)
         result = self.descriptor.zero()
-        getattr(lib(), fn)(self._ptr, other._ptr, result._ptr)
+        function = ffi().addressof(lib(), fn)
+        status = lib().madng_tpsa_protected_binary_call(
+            function,
+            self._ptr,
+            other._ptr,
+            result._ptr,
+        )
+        if status:
+            self._raise_mad_error()
         return result
 
     def _coerce_operand(self, other: Tpsa | Numeric) -> Tpsa:
@@ -327,14 +336,33 @@ class Tpsa:
 
     def _unary_op(self, fn: str) -> Tpsa:
         result = self.descriptor.zero()
-        getattr(lib(), fn)(self._ptr, result._ptr)
+        function = ffi().addressof(lib(), fn)
+        status = lib().madng_tpsa_protected_unary_call(function, self._ptr, result._ptr)
+        if status:
+            self._raise_mad_error()
         return result
 
-    def _pair_op(self, fn: str) -> tuple[Tpsa, Tpsa]:
+    def _two_output_unary_op(self, fn: str) -> tuple[Tpsa, Tpsa]:
         first = self.descriptor.zero()
         second = self.descriptor.zero()
-        getattr(lib(), fn)(self._ptr, first._ptr, second._ptr)
+        function = ffi().addressof(lib(), fn)
+        status = lib().madng_tpsa_protected_two_output_call(
+            function,
+            self._ptr,
+            first._ptr,
+            second._ptr,
+        )
+        if status:
+            self._raise_mad_error()
         return first, second
+
+    @staticmethod
+    def _raise_mad_error() -> None:
+        location = ffi().string(lib().madng_tpsa_last_error_location()).decode()
+        message = ffi().string(lib().madng_tpsa_last_error_message()).decode()
+        if location:
+            raise TpsaError(f'GTPSA error in {location}: {message}')
+        raise TpsaError(f'GTPSA error: {message}')
 
     def _check_compatible(self, other: Tpsa) -> None:
         """Raise if ``other`` cannot be combined with this series."""
@@ -406,7 +434,7 @@ class Tpsa:
 
     def __add__(self, other: Tpsa | Numeric) -> Tpsa:
         if isinstance(other, Tpsa):
-            return self._binop(other, 'mad_tpsa_add')
+            return self._binary_op(other, 'mad_tpsa_add')
         result = self.descriptor.zero()
         lib().mad_tpsa_axpb(1.0, self._ptr, float(other), result._ptr)
         return result
@@ -415,7 +443,7 @@ class Tpsa:
 
     def __sub__(self, other: Tpsa | Numeric) -> Tpsa:
         if isinstance(other, Tpsa):
-            return self._binop(other, 'mad_tpsa_sub')
+            return self._binary_op(other, 'mad_tpsa_sub')
         return self.__add__(-float(other))
 
     def __rsub__(self, other: Numeric) -> Tpsa:
@@ -425,7 +453,7 @@ class Tpsa:
 
     def __mul__(self, other: Tpsa | Numeric) -> Tpsa:
         if isinstance(other, Tpsa):
-            return self._binop(other, 'mad_tpsa_mul')
+            return self._binary_op(other, 'mad_tpsa_mul')
         result = self.descriptor.zero()
         lib().mad_tpsa_scl(self._ptr, float(other), result._ptr)
         return result
@@ -434,12 +462,18 @@ class Tpsa:
 
     def __truediv__(self, other: Tpsa | Numeric) -> Tpsa:
         if isinstance(other, Tpsa):
-            return self._binop(other, 'mad_tpsa_div')
+            return self._binary_op(other, 'mad_tpsa_div')
+        if other == 0:
+            message = 'Division by zero scalar'
+            raise ZeroDivisionError(message)
         result = self.descriptor.zero()
         lib().mad_tpsa_divn(self._ptr, float(other), result._ptr)
         return result
 
     def __rtruediv__(self, other: Numeric) -> Tpsa:
+        if self.const_part == 0:
+            message = 'Cannot divide by a TPSA with zero constant coefficient'
+            raise ZeroDivisionError(message)
         result = self.descriptor.zero()
         lib().mad_tpsa_inv(self._ptr, float(other), result._ptr)
         return result
@@ -533,15 +567,15 @@ class Tpsa:
 
     def sincos(self) -> tuple[Tpsa, Tpsa]:
         """Return ``(sin(x), cos(x))`` for this series."""
-        return self._pair_op('mad_tpsa_sincos')
+        return self._two_output_unary_op('mad_tpsa_sincos')
 
     def sincosq(self) -> tuple[Tpsa, Tpsa]:
         """Return ``(sinc(sqrt(x)), cos(sqrt(x)))`` for this series."""
-        return self._pair_op('mad_tpsa_sincosq')
+        return self._two_output_unary_op('mad_tpsa_sincosq')
 
     def sincosmq(self) -> tuple[Tpsa, Tpsa]:
         """Return ``((sinc(sqrt(x)) - 1) / x, (cos(sqrt(x)) - 1) / x)``."""
-        return self._pair_op('mad_tpsa_sincosmq')
+        return self._two_output_unary_op('mad_tpsa_sincosmq')
 
     def sinh(self) -> Tpsa:
         """Return the hyperbolic sine of this series."""
@@ -573,15 +607,15 @@ class Tpsa:
 
     def sincosh(self) -> tuple[Tpsa, Tpsa]:
         """Return ``(sinh(x), cosh(x))`` for this series."""
-        return self._pair_op('mad_tpsa_sincosh')
+        return self._two_output_unary_op('mad_tpsa_sincosh')
 
     def sincoshq(self) -> tuple[Tpsa, Tpsa]:
         """Return ``(sinhc(sqrt(x)), cosh(sqrt(x)))`` for this series."""
-        return self._pair_op('mad_tpsa_sincoshq')
+        return self._two_output_unary_op('mad_tpsa_sincoshq')
 
     def sincoshmq(self) -> tuple[Tpsa, Tpsa]:
         """Return ``((sinhc(sqrt(x)) - 1) / x, (cosh(sqrt(x)) - 1) / x)``."""
-        return self._pair_op('mad_tpsa_sincoshmq')
+        return self._two_output_unary_op('mad_tpsa_sincoshmq')
 
     def erf(self) -> Tpsa:
         """Return the error function of this series."""
@@ -611,21 +645,20 @@ class Tpsa:
     def atan2(self, other: Tpsa | Numeric) -> Tpsa:
         """Return ``atan2(self, other)``."""
         other = self._coerce_operand(other)
-        result = self.descriptor.zero()
-        lib().mad_tpsa_atan2(self._ptr, other._ptr, result._ptr)
-        return result
+        return self._binary_op(other, 'mad_tpsa_atan2')
 
     def hypot(self, other: Tpsa | Numeric) -> Tpsa:
         """Return ``sqrt(self**2 + other**2)``."""
         other = self._coerce_operand(other)
-        result = self.descriptor.zero()
-        lib().mad_tpsa_hypot(self._ptr, other._ptr, result._ptr)
-        return result
+        return self._binary_op(other, 'mad_tpsa_hypot')
 
     def hypot3(self, other: Tpsa | Numeric, third: Tpsa | Numeric) -> Tpsa:
         """Return ``sqrt(self**2 + other**2 + third**2)``."""
         other = self._coerce_operand(other)
         third = self._coerce_operand(third)
+        if self.const_part == other.const_part == third.const_part == 0:
+            message = 'At least one nonzero constant coefficient is required in hypot3'
+            raise TpsaError(message)
         result = self.descriptor.zero()
         lib().mad_tpsa_hypot3(self._ptr, other._ptr, third._ptr, result._ptr)
         return result
