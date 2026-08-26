@@ -510,9 +510,6 @@ class Tpsa:
     def __float__(self) -> float:
         return self.const_part
 
-    # Ordering against a scalar goes through the constant part, the same convention as
-    # __float__. Two series are left unordered on purpose. A knob held as a parameter
-    # sits in line.vars as a series, and xdeps compares it to its float limits.
     def __lt__(self, other: Numeric) -> bool:
         if isinstance(other, Tpsa):
             return NotImplemented
