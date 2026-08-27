@@ -267,6 +267,14 @@ class Descriptor:
         arr = ffi().new('unsigned char[]', m)
         return bool(lib().mad_desc_isvalidm(self._ptr, len(m), arr))
 
+    def monomial_index(self, monomial: Iterable[int]) -> int:
+        """Index of ``monomial`` in the descriptor's coefficient array."""
+        m = [int(x) for x in monomial]
+        if not self.is_valid_monomial(m):
+            raise ValueError(f'invalid monomial {tuple(m)} for this descriptor')
+        arr = ffi().new('unsigned char[]', m)
+        return lib().mad_desc_idxm(self._ptr, len(m), arr)
+
     def constant(self, value: Numeric, /) -> Tpsa:
         """Create a constant TPSA series on this descriptor."""
         t = self.zero()

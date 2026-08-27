@@ -50,6 +50,60 @@ def test_is_valid_monomial():
     assert not d.is_valid_monomial((1, 1, 1))  # wrong length
 
 
+def test_monomial_index_matches_the_stored_coefficient():
+    # The index is what a C loop uses with mad_tpsa_geti instead of decoding a
+    # monomial per read, so it has to select the same coefficient as get().
+    d = madng_tpsa.Descriptor(6, 3)
+    t = d.zero()
+    monomials = [
+        (0, 0, 0, 0, 0, 0),
+        (1, 0, 0, 0, 0, 0),
+        (0, 0, 0, 0, 0, 2),
+        (1, 1, 1, 0, 0, 0),
+        (0, 0, 0, 0, 0, 3),
+    ]
+    for value, monomial in enumerate(monomials, start=1):
+        t.set(monomial, float(value))
+    for value, monomial in enumerate(monomials, start=1):
+        index = d.monomial_index(monomial)
+        assert madng_tpsa.lib().mad_tpsa_geti(t.ptr, index) == float(value)
+        assert t.get(monomial) == float(value)
+
+
+def test_monomial_index_of_the_constant_term_is_zero():
+    d = madng_tpsa.Descriptor(6, 2)
+    assert d.monomial_index((0, 0, 0, 0, 0, 0)) == 0
+
+
+def test_monomial_index_with_parameters():
+    d = madng_tpsa.Descriptor(6, 2, num_params=2, param_order=1)
+    t = d.zero()
+    monomial = (1, 0, 0, 0, 0, 0, 1, 0)  # one variable times one parameter
+    t.set(monomial, 0.25)
+    index = d.monomial_index(monomial)
+    assert madng_tpsa.lib().mad_tpsa_geti(t.ptr, index) == 0.25
+    # a parameter beyond param_order is not representable
+    with pytest.raises(ValueError, match='invalid monomial'):
+        d.monomial_index((0, 0, 0, 0, 0, 0, 2, 0))
+
+
+def test_monomial_index_rejects_invalid_monomials():
+    d = madng_tpsa.Descriptor(2, 2)
+    with pytest.raises(ValueError, match='invalid monomial'):
+        d.monomial_index((2, 1))  # total order 3 > 2
+    with pytest.raises(ValueError, match='invalid monomial'):
+        d.monomial_index((1, 1, 1))  # wrong length
+
+
+def test_monomial_index_of_a_low_order_series_is_still_readable():
+    # A series can be shorter than the descriptor. geti has to return 0 there
+    # rather than read past the coefficients.
+    d = madng_tpsa.Descriptor(6, 4)
+    t = d.zero(order=1)
+    index = d.monomial_index((0, 0, 0, 0, 0, 4))
+    assert madng_tpsa.lib().mad_tpsa_geti(t.ptr, index) == 0.0
+
+
 def test_descriptor_instances_and_from_ptr():
     d = madng_tpsa.Descriptor(6, 4)
     live = list(madng_tpsa.Descriptor._instances_by_ptr.values())
