@@ -261,17 +261,16 @@ class Descriptor:
         lib().mad_desc_maxord(self._ptr, self.monomial_length, max_order_arr)
         return tuple(max_order_arr)
 
-    def is_valid_monomial(self, monomial: Iterable[int]) -> bool:
+    def is_valid_monomial(self, monomial: Sequence[int]) -> bool:
         """Whether ``monomial`` is representable (querying beyond-order aborts C)."""
-        m = [int(x) for x in monomial]
-        arr = ffi().new('unsigned char[]', m)
-        return bool(lib().mad_desc_isvalidm(self._ptr, len(m), arr))
+        arr = ffi().new('unsigned char[]', monomial)
+        return bool(lib().mad_desc_isvalidm(self._ptr, len(monomial), arr))
 
     def monomial_index(self, monomial: Iterable[int]) -> int:
         """Index of ``monomial`` in the descriptor's coefficient array."""
-        m = [int(x) for x in monomial]
+        m = tuple(int(x) for x in monomial)
         if not self.is_valid_monomial(m):
-            raise ValueError(f'invalid monomial {tuple(m)} for this descriptor')
+            raise ValueError(f'Invalid monomial {tuple(m)} for this descriptor')
         arr = ffi().new('unsigned char[]', m)
         return lib().mad_desc_idxm(self._ptr, len(m), arr)
 

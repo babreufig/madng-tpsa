@@ -83,15 +83,15 @@ def test_monomial_index_with_parameters():
     index = d.monomial_index(monomial)
     assert madng_tpsa.lib().mad_tpsa_geti(t.ptr, index) == 0.25
     # a parameter beyond param_order is not representable
-    with pytest.raises(ValueError, match='invalid monomial'):
+    with pytest.raises(ValueError, match='Invalid monomial'):
         d.monomial_index((0, 0, 0, 0, 0, 0, 2, 0))
 
 
 def test_monomial_index_rejects_invalid_monomials():
     d = madng_tpsa.Descriptor(2, 2)
-    with pytest.raises(ValueError, match='invalid monomial'):
+    with pytest.raises(ValueError, match='Invalid monomial'):
         d.monomial_index((2, 1))  # total order 3 > 2
-    with pytest.raises(ValueError, match='invalid monomial'):
+    with pytest.raises(ValueError, match='Invalid monomial'):
         d.monomial_index((1, 1, 1))  # wrong length
 
 
