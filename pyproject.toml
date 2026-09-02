@@ -39,7 +39,7 @@ wheel.packages = ["src/madng_tpsa"]
 cmake.version = ">=3.18"
 build-dir = "build/{wheel_tag}"
 
-[tool.scikit-build.metadata.version]
+[[tool.dynamic-metadata]]
 provider = "scikit_build_core.metadata.setuptools_scm"
 
 [tool.setuptools_scm]
@@ -48,6 +48,7 @@ write_to = "src/madng_tpsa/_version.py"
 [tool.scikit-build.sdist]
 include = [
     "CMakeLists.txt",
+    "src/madng_tpsa/_version.py",
     "madng/src/mad_*.c",
     "madng/src/mad_*.h",
     "madng/src/mad_*.hpp",
