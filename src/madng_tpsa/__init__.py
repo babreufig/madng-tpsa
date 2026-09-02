@@ -13,12 +13,11 @@ algebraic operations. The coefficients are the derivatives.
 """
 
 from ._cffi import CDEF, ffi, lib
+from ._version import __version__
 from .descriptor import Descriptor
 from .errors import TpsaError
 from .paths import core_library, include_dir
 from .tpsa import Tpsa
-
-__version__ = '0.1.0'
 
 __all__ = [
     'CDEF',
