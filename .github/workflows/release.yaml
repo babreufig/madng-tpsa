@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build-wheels:
+    if: github.repository == 'babreufig/madng-tpsa'
+    name: Build wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Install GCC on macOS
+        if: runner.os == 'macOS'
+        run: |
+          brew install gcc
+          compiler_version="$(brew list --versions gcc | awk '{print $2}' | cut -d. -f1)"
+          compiler_environment="MACOSX_DEPLOYMENT_TARGET=11.0 CC=gcc-${compiler_version}"
+          compiler_environment+=" CXX=g++-${compiler_version}"
+          echo "CIBW_ENVIRONMENT_MACOS=${compiler_environment}" >> "$GITHUB_ENV"
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.23.3
+        env:
+          CIBW_BUILD: 'cp311-* cp312-* cp313-* cp314-*'
+          CIBW_SKIP: '*-musllinux*'
+          CIBW_ARCHS_LINUX: x86_64
+          CIBW_ARCHS_MACOS: arm64
+          CIBW_BEFORE_ALL_LINUX: yum install -y lapack-devel openblas-devel
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  publish:
+    if: github.repository == 'babreufig/madng-tpsa'
+    name: Publish to PyPI
+    needs: build-wheels
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/

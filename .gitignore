@@ -9,6 +9,7 @@ dist/
 src/madng_tpsa/lib/*.so
 src/madng_tpsa/lib/*.so.*
 src/madng_tpsa/lib/*.dylib
+src/madng_tpsa/_version.py
 __pycache__/
 *.py[cod]
 *.sw[op]
