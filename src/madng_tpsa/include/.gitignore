@@ -1,2 +1,3 @@
+# MAD-NG headers copied here by CMake, including mad_ctpsa.h.
 mad_*.h
 mad_*.hpp

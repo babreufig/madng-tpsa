@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include "mad_tpsa.h"
+#include "mad_ctpsa.h"
 
 /* Helper functions for this library */
 int madng_tpsa_check_tpsa_compatibility(const tpsa_t *left, const tpsa_t *right);
