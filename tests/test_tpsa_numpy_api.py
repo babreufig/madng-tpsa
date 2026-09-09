@@ -1,12 +1,16 @@
 """Tests for TPSA mathematical functions and NumPy ufunc dispatch."""
 
 import math
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pytest
 import scipy.special
 
 import madng_tpsa
+
+if TYPE_CHECKING:
+    from typing import Any
 
 
 def _constant(value: float) -> madng_tpsa.Tpsa:
@@ -95,11 +99,11 @@ def test_selected_math_derivatives():
 @pytest.mark.parametrize(
     ('method_name', 'special_func', 'value', 'expected'),
     [
-        ('erf', scipy.special.erf, 0.5, scipy.special.erf(0.5)),
-        ('erfc', scipy.special.erfc, 0.5, scipy.special.erfc(0.5)),
-        ('erfcx', scipy.special.erfcx, 0.5, scipy.special.erfcx(0.5)),
-        ('erfi', scipy.special.erfi, 0.5, scipy.special.erfi(0.5)),
-        ('wofz', scipy.special.wofz, 0.5, scipy.special.wofz(0.5).real),
+        ('erf', scipy.special.erf, 0.5, cast('Any', scipy.special.erf)(0.5)),
+        ('erfc', scipy.special.erfc, 0.5, cast('Any', scipy.special.erfc)(0.5)),
+        ('erfcx', scipy.special.erfcx, 0.5, cast('Any', scipy.special.erfcx)(0.5)),
+        ('erfi', scipy.special.erfi, 0.5, cast('Any', scipy.special.erfi)(0.5)),
+        ('wofz', scipy.special.wofz, 0.5, cast('Any', scipy.special.wofz)(0.5).real),
     ],
 )
 def test_scipy_special_methods_and_ufuncs(method_name, special_func, value, expected):

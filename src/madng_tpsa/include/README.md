@@ -223,7 +223,7 @@ intermediate results are projected back to a real TPSA.
 | `void mad_tpsa_erfc(const tpsa_t *a, tpsa_t *c)` | Complementary error function. |
 | `void mad_tpsa_erfcx(const tpsa_t *a, tpsa_t *c)` | Scaled complementary error function, related to $\mathrm{wf}(ix)$. |
 | `void mad_tpsa_erfi(const tpsa_t *a, tpsa_t *c)` | Imaginary error function, implemented through a complex intermediate. |
-| `void mad_tpsa_wf(const tpsa_t *a, tpsa_t *c)` | Faddeeva function $w(z) = \exp(-z^2)\mathrm{erfc}(-iz)$. In madng_tpsa this is exposed as `wofz`; for real TPSAs it returns the real part of SciPy's complex-valued `scipy.special.wofz`. |
+| `void mad_tpsa_wf(const tpsa_t *a, tpsa_t *c)` | Faddeeva function $w(z) = \exp(-z^2)\mathrm{erfc}(-iz)$. |
 
 ## Binary and ternary math functions
 

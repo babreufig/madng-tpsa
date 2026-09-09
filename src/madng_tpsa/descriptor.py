@@ -14,12 +14,13 @@ same Python ``Descriptor`` object for the same C descriptor pointer.
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, SupportsComplex, SupportsFloat
 from weakref import WeakValueDictionary
 
 from . import _cffi
 from ._cffi import ffi, lib
-from .tpsa import Numeric, Tpsa
+from .complex_tpsa import ComplexTpsa
+from .tpsa import Tpsa
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -47,8 +48,9 @@ class Descriptor:
     var_labels: tuple[str, ...]
     param_labels: tuple[str, ...]
     _tpsas: WeakValueDictionary[int, Tpsa]
+    _complex_tpsas: WeakValueDictionary[int, ComplexTpsa]
 
-    __slots__ = ('_ptr', 'param_labels', 'var_labels', '_tpsas', '__weakref__')
+    __slots__ = ('_ptr', 'param_labels', 'var_labels', '_tpsas', '_complex_tpsas', '__weakref__')
 
     def __new__(
         cls,
@@ -177,6 +179,7 @@ class Descriptor:
         descriptor.var_labels = tuple(var_labels)
         descriptor.param_labels = tuple(param_labels)
         descriptor._tpsas = WeakValueDictionary()
+        descriptor._complex_tpsas = WeakValueDictionary()
         cls._instances_by_ptr[key] = descriptor
 
         return descriptor
@@ -274,7 +277,7 @@ class Descriptor:
         arr = ffi().new('unsigned char[]', m)
         return lib().mad_desc_idxm(self._ptr, len(m), arr)
 
-    def constant(self, value: Numeric, /) -> Tpsa:
+    def constant(self, value: SupportsFloat, /) -> Tpsa:
         """Create a constant TPSA series on this descriptor."""
         t = self.zero()
         lib().mad_tpsa_seti(t.ptr, 0, 0.0, float(value))
@@ -283,6 +286,73 @@ class Descriptor:
     def zero(self, order: int | None = None) -> Tpsa:
         """Create a zero TPSA series on this descriptor."""
         return Tpsa(self, order=order)
+
+    def complex_constant(self, value: SupportsFloat | SupportsComplex, /) -> ComplexTpsa:
+        """Create a constant complex TPSA series on this descriptor."""
+        t = self.complex_zero()
+        t.set_const_part(value)
+        return t
+
+    def complex_zero(self, order: int | None = None) -> ComplexTpsa:
+        """Create a zero complex TPSA series on this descriptor."""
+        return ComplexTpsa(self, order=order)
+
+    def complex_var(
+        self,
+        index: int | str,
+        value: SupportsFloat | SupportsComplex = 0.0j,
+        order: int | None = None,
+    ) -> ComplexTpsa:
+        """Create a complex identity variable series on this descriptor."""
+        if order is not None and order <= 0:
+            message = 'Variable order must be positive'
+            raise ValueError(message)
+
+        variable_index = self._var_index(index)
+        t = self.complex_zero(order=order)
+        value = complex(value)
+        lib().mad_ctpsa_setvar_r(
+            t.ptr,
+            value.real,
+            value.imag,
+            variable_index,
+            0.0,
+            0.0,
+        )
+        return t
+
+    def complex_vars(
+        self, values: Sequence[SupportsFloat | SupportsComplex] | None = None
+    ) -> tuple[ComplexTpsa, ...]:
+        """Create complex identity series for all variables on this descriptor."""
+        if values is None:
+            values = [0.0j] * self.num_vars
+        if len(values) != self.num_vars:
+            message = 'Values must contain one entry per variable'
+            raise ValueError(message)
+        return tuple(self.complex_var(index, value) for index, value in enumerate(values, start=1))
+
+    def complex_param(
+        self,
+        index: int | str,
+        value: SupportsFloat | SupportsComplex = 0.0j,
+        order: int | None = None,
+    ) -> ComplexTpsa:
+        """Create a complex identity parameter series on this descriptor."""
+        if order is None:
+            order = 1
+        elif order != 1:
+            message = 'Parameter order must be 1'
+            raise ValueError(message)
+        parameter_index = self._param_index(index)
+        t = self.complex_zero(order=order)
+        value = complex(value)
+        lib().mad_ctpsa_setprm_r(t.ptr, value.real, value.imag, parameter_index)
+        return t
+
+    def complex_params(self) -> tuple[ComplexTpsa, ...]:
+        """Create complex identity series for all parameters on this descriptor."""
+        return tuple(self.complex_param(index) for index in range(1, self.num_params + 1))
 
     def _var_index(self, variable: int | str) -> int:
         if isinstance(variable, str):
@@ -310,7 +380,7 @@ class Descriptor:
             raise KeyError(variable)
         return int(variable)
 
-    def var(self, index: int | str, value: Numeric = 0.0, order: int | None = None) -> Tpsa:
+    def var(self, index: int | str, value: SupportsFloat = 0.0, order: int | None = None) -> Tpsa:
         """Create identity variable ``index`` on this descriptor.
 
         The variable index starts from 1 and is expanded around ``value``.
@@ -324,7 +394,7 @@ class Descriptor:
         lib().mad_tpsa_setvar(t.ptr, float(value), int(index), 0.0)
         return t
 
-    def vars(self, values: Sequence[Numeric] | None = None) -> tuple[Tpsa, ...]:
+    def vars(self, values: Sequence[SupportsFloat] | None = None) -> tuple[Tpsa, ...]:
         """Create identity series for all variables on this descriptor.
 
         If ``values`` is provided, each variable is expanded around the
@@ -337,7 +407,7 @@ class Descriptor:
             raise ValueError(message)
         return tuple(self.var(index, value) for index, value in enumerate(values, start=1))
 
-    def param(self, index: int | str, value: Numeric = 0.0, order: int | None = None) -> Tpsa:
+    def param(self, index: int | str, value: SupportsFloat = 0.0, order: int | None = None) -> Tpsa:
         """Create identity parameter ``index`` on this descriptor.
 
         The parameter index starts from 1. Parameters are appended after
