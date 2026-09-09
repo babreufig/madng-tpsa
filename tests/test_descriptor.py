@@ -66,7 +66,7 @@ def test_monomial_index_matches_the_stored_coefficient():
         t.set(monomial, float(value))
     for value, monomial in enumerate(monomials, start=1):
         index = d.monomial_index(monomial)
-        assert madng_tpsa.lib().mad_tpsa_geti(t.ptr, index) == float(value)
+        assert madng_tpsa.lib.mad_tpsa_geti(t.ptr, index) == float(value)
         assert t.get(monomial) == float(value)
 
 
@@ -81,7 +81,7 @@ def test_monomial_index_with_parameters():
     monomial = (1, 0, 0, 0, 0, 0, 1, 0)  # one variable times one parameter
     t.set(monomial, 0.25)
     index = d.monomial_index(monomial)
-    assert madng_tpsa.lib().mad_tpsa_geti(t.ptr, index) == 0.25
+    assert madng_tpsa.lib.mad_tpsa_geti(t.ptr, index) == 0.25
     # a parameter beyond param_order is not representable
     with pytest.raises(ValueError, match='Invalid monomial'):
         d.monomial_index((0, 0, 0, 0, 0, 0, 2, 0))
@@ -101,7 +101,7 @@ def test_monomial_index_of_a_low_order_series_is_still_readable():
     d = madng_tpsa.Descriptor(6, 4)
     t = d.zero(order=1)
     index = d.monomial_index((0, 0, 0, 0, 0, 4))
-    assert madng_tpsa.lib().mad_tpsa_geti(t.ptr, index) == 0.0
+    assert madng_tpsa.lib.mad_tpsa_geti(t.ptr, index) == 0.0
 
 
 def test_descriptor_instances_and_from_ptr():
@@ -184,8 +184,6 @@ def test_descriptor_unknown_labels_raise_key_error():
         d.var('y')
     with pytest.raises(KeyError):
         d.param('q')
-    with pytest.raises(KeyError):
-        d.variable_index('missing')
 
 
 def test_descriptor_reuses_existing_labels_and_warns_on_mismatch():

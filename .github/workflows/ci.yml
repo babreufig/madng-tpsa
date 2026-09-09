@@ -50,8 +50,6 @@ jobs:
     name: Coverage
     needs: checks
     runs-on: ubuntu-latest
-    outputs:
-      percentage: ${{ steps.report.outputs.percentage }}
 
     steps:
       - name: Check out repository
@@ -72,27 +70,12 @@ jobs:
           merge-multiple: true
 
       - name: Combine coverage reports
-        run: |
-          python -m coverage combine
-          python -m coverage json -o coverage.json
+        run: python -m coverage combine
 
       - name: Report coverage
-        id: report
         run: |
-          python - <<'PY'
-          import json
-          import os
-
-          with open('coverage.json') as file:
-              coverage = json.load(file)['totals']['percent_covered']
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              print(f'percentage={coverage:.2f}', file=output)
-          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
-              print(f'## Coverage\n\nBranch coverage: {coverage:.2f}%', file=summary)
-          PY
-
-      - name: Upload combined coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage.json
+          {
+            echo '## Coverage'
+            echo
+            python -m coverage report --format=markdown
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,4 +1,6 @@
 build/
+coverage
+.coverage
 coverage.*
 dist/
 .mad-ng-*/

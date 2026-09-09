@@ -8,6 +8,7 @@ import pytest
 import scipy.special
 
 import madng_tpsa
+from madng_tpsa._cffi import lib
 
 if TYPE_CHECKING:
     from typing import Any
@@ -40,6 +41,42 @@ def test_complex_coefficients_and_copy_are_independent():
     np.testing.assert_allclose(t.coefficient([(0, 0), (1, 1)]), [9j, -3 + 4j])
 
 
+def test_complex_series_coefficient_state_operations():
+    d = madng_tpsa.Descriptor(2, 3)
+    t = d.complex_zero()
+
+    assert t.is_zero()
+    assert t.is_constant()
+    assert t.max_nonzero_order == 0
+
+    t.from_dict({(0, 0): 1 + 2j, (2, 0): 3 - 4j})
+
+    assert t[(2, 0)] == pytest.approx(3 - 4j)
+    assert not t.is_zero()
+    assert not t.is_constant()
+    assert t.max_nonzero_order == 2
+    assert t.norm() == pytest.approx(abs(1 + 2j) + abs(3 - 4j))
+
+    t.clear()
+
+    assert t.is_zero()
+    assert t.is_constant()
+
+
+def test_complex_unit_normalises_by_the_constant_part_magnitude():
+    d = madng_tpsa.Descriptor(1, 2)
+    t = d.complex_constant(3 + 4j)
+    t[(1,)] = 1 + 2j
+
+    result = t.unit()
+
+    assert result.const_part == pytest.approx((3 + 4j) / 5)
+    assert result[(1,)] == pytest.approx((1 + 2j) / 5)
+
+    with pytest.raises(ZeroDivisionError, match='zero constant part'):
+        d.complex_zero().unit()
+
+
 def test_from_tpsa_promotes_real_tpsas():
     d = madng_tpsa.Descriptor(1, 2)
     real = d.var(1, 1.0)
@@ -55,6 +92,22 @@ def test_from_tpsa_promotes_real_tpsas():
 
     with pytest.raises(ValueError, match='Incompatible TPSA descriptors'):
         madng_tpsa.ComplexTpsa.from_tpsa(real, madng_tpsa.Descriptor(2, 2).var(1))
+
+
+def test_complex_from_ptr_interns_and_infers_descriptor():
+    d = madng_tpsa.Descriptor(1, 2)
+    t = d.complex_var(1)
+
+    assert madng_tpsa.ComplexTpsa.from_ptr(t.ptr, d) is t
+
+    ptr = lib.mad_ctpsa_newd(d.ptr, d.order)
+    owned = madng_tpsa.ComplexTpsa.from_ptr(ptr, owns=True)
+
+    assert owned.ptr == ptr
+    assert owned.descriptor is d
+
+    with pytest.raises(ValueError, match='A descriptor must be provided'):
+        madng_tpsa.ComplexTpsa.from_ptr(ptr)
 
 
 def test_complex_arithmetic_and_mixed_real_operands():
@@ -97,6 +150,57 @@ def test_complex_differential_algebra():
     assert x.poisson_bracket(y).const_part == pytest.approx(1)
 
 
+def test_complex_derivative_resolves_variable_and_parameter_specifications():
+    d = madng_tpsa.Descriptor(variables=['x'], order=3, params=['k'], param_order=3)
+    x = d.complex_var('x')
+    k = d.complex_param('k')
+    real_x = d.var('x')
+    real_k = d.param('k')
+    f = x * x * k
+
+    for specification in (1, 'x', real_x):
+        assert f.derivative(specification).equals(f.derivative(real_x))
+    for specification in (2, 'k', real_k):
+        assert f.derivative(specification).equals(f.derivative(real_k))
+    assert f.derivative((1, 1)).get((1, 0)) == pytest.approx(2)
+    assert f.derivative(real_x * real_x).equals(f.derivative((2, 0)))
+
+    with pytest.raises(ValueError, match='coefficient 1'):
+        f.derivative(2.0 * real_x)
+    with pytest.raises(ValueError, match='identity variable'):
+        f.integrate(real_x * real_x)
+
+
+def test_complex_integrate_resolves_variable_specifications():
+    d = madng_tpsa.Descriptor(variables=['x'], order=3, params=['k'], param_order=3)
+    x = d.complex_var('x')
+    real_x = d.var('x')
+    f = x * x
+
+    for specification in (1, 'x', real_x):
+        assert f.integrate(specification).equals(f.integrate(real_x))
+
+
+@pytest.mark.xfail(reason='MAD-NG integration does not support parameters')
+def test_complex_integrate_resolves_parameter_specifications():
+    d = madng_tpsa.Descriptor(variables=['x'], order=3, params=['k'], param_order=3)
+    x = d.complex_var('x')
+    k = d.complex_param('k')
+    real_k = d.param('k')
+    f = x * x + k
+
+    for specification in (2, 'k', real_k):
+        assert f.integrate(specification).equals(f.integrate(real_k))
+
+
+def test_complex_poisson_bracket_with_explicit_pair_count():
+    d = madng_tpsa.Descriptor(4, 3)
+    x, px, y, py = d.complex_vars()
+
+    assert x.poisson_bracket(px, num_pairs=1).const_part == pytest.approx(1)
+    assert y.poisson_bracket(py, num_pairs=1).is_zero()
+
+
 def test_complex_elementary_functions_and_numpy_dispatch():
     d = madng_tpsa.Descriptor(1, 2)
     z = d.complex_constant(1 + 2j)
@@ -110,6 +214,45 @@ def test_complex_elementary_functions_and_numpy_dispatch():
     assert cast('Any', scipy.special.erf)(z).const_part == pytest.approx(
         cast('Any', scipy.special.erf)(1 + 2j)
     )
+
+
+@pytest.mark.parametrize(
+    ('method_name', 'function_name'),
+    [
+        ('sqrt', 'sqrt'),
+        ('sin', 'sin'),
+        ('cos', 'cos'),
+        ('tan', 'tan'),
+        ('sinh', 'sinh'),
+        ('cosh', 'cosh'),
+        ('tanh', 'tanh'),
+        ('asin', 'arcsin'),
+        ('acos', 'arccos'),
+        ('atan', 'arctan'),
+        ('asinh', 'arcsinh'),
+        ('acosh', 'arccosh'),
+        ('atanh', 'arctanh'),
+    ],
+)
+def test_complex_sqrt_and_trigonometric_functions(method_name, function_name):
+    value = 0.5 + 0.25j
+    t = madng_tpsa.Descriptor(1, 2).complex_constant(value)
+
+    result = getattr(t, method_name)()
+    expected = getattr(np, function_name)(value)
+
+    assert result.const_part == pytest.approx(expected)
+
+
+@pytest.mark.parametrize('method_name', ('erf', 'erfc', 'erfcx', 'erfi', 'wofz'))
+def test_complex_error_functions(method_name):
+    value = 0.5 + 0.25j
+    t = madng_tpsa.Descriptor(1, 2).complex_constant(value)
+
+    result = getattr(t, method_name)()
+    expected = getattr(scipy.special, method_name)(value)
+
+    assert result.const_part == pytest.approx(expected)
 
 
 def test_complex_operations_reject_incompatible_descriptors():

@@ -18,20 +18,32 @@ def test_integrate_accepts_index_or_identity_variable():
     assert by_index.get((1, 1)) == pytest.approx(3.0)
 
 
-def test_integrate_accepts_labels():
-    d = madng_tpsa.Descriptor(variables=['x', 'y'], order=3)
-    x, y = d.vars()
-    f = x * x + 3.0 * y
+def test_integrate_resolves_variable_specifications():
+    d = madng_tpsa.Descriptor(variables=['x'], order=3, params=['k'], param_order=3)
+    x = d.var('x')
+    k = d.param('k')
+    f = x * x + k
 
-    assert f.integrate('x') == f.integrate(x)
-    assert f.integrate('y') == f.integrate(y)
+    for specification in (1, 'x', x):
+        assert f.integrate(specification) == f.integrate(x)
+
+
+@pytest.mark.xfail(reason='MAD-NG integration does not support parameters')
+def test_integrate_resolves_parameter_specifications():
+    d = madng_tpsa.Descriptor(variables=['x'], order=3, params=['k'], param_order=3)
+    x = d.var('x')
+    k = d.param('k')
+    f = x * x + k
+
+    for specification in (2, 'k', k):
+        assert f.integrate(specification) == f.integrate(k)
 
 
 def test_integrate_rejects_non_identity_tpsa_variable():
     d = madng_tpsa.Descriptor(1, 2)
     x = d.var(1)
 
-    with pytest.raises(ValueError, match='identity variable'):
+    with pytest.raises(ValueError, match='coefficient 1'):
         x.integrate(2.0 * x)
 
 
@@ -47,34 +59,81 @@ def test_derivative_accepts_index_identity_variable_tuple_or_single_monomial_tps
     assert mixed.const_part == pytest.approx(2.0)
 
     monomial = d.zero()
-    monomial.set((2, 1), 7.0)
+    monomial.set((2, 1), 1.0)
     assert f.derivative(monomial) == mixed
 
 
-def test_derivative_accepts_labels():
-    d = madng_tpsa.Descriptor(variables=['x', 'y'], order=3, params=['k'])
+def test_derivative_resolves_variable_and_parameter_specifications():
+    d = madng_tpsa.Descriptor(variables=['x'], order=3, params=['k'])
     x = d.var('x')
-    y = d.var('y')
     k = d.param('k')
-    f = x * x * y + 4.0 * k
+    f = x * x * k
 
-    assert f.derivative('x') == f.derivative(x)
-    assert f.derivative('y') == f.derivative(y)
-    assert f.derivative('k') == f.derivative(k)
+    for specification in (1, 'x', x):
+        assert f.derivative(specification) == f.derivative(x)
+    for specification in (2, 'k', k):
+        assert f.derivative(specification) == f.derivative(k)
+    assert f.derivative((1, 1)).get((1, 0)) == pytest.approx(2.0)
+
+
+@pytest.mark.parametrize('receiver_factory', ('zero', 'complex_zero'))
+def test_resolve_single_monomial(receiver_factory):
+    d = madng_tpsa.Descriptor(variables=['x'], order=3, params=['k'], param_order=3)
+    receiver = getattr(d, receiver_factory)()
+    x = d.var('x')
+    k = d.param('k')
+    monomial = d.zero()
+    monomial[(2, 1)] = 1.0
+
+    assert receiver._resolve_single_monomial((1, 0)) == (1, 0)
+    assert receiver._resolve_single_monomial((1, 1)) == (1, 1)
+    assert receiver._resolve_single_monomial((2, 1)) == (2, 1)
+    assert receiver._resolve_single_monomial(1) == (1, 0)
+    assert receiver._resolve_single_monomial('x') == (1, 0)
+    assert receiver._resolve_single_monomial(x) == (1, 0)
+    assert receiver._resolve_single_monomial(2) == (0, 1)
+    assert receiver._resolve_single_monomial('k') == (0, 1)
+    assert receiver._resolve_single_monomial(k) == (0, 1)
+    assert receiver._resolve_single_monomial(monomial) == (2, 1)
+
+    with pytest.raises(ValueError, match='positive order'):
+        receiver._resolve_single_monomial((0, 0))
+    with pytest.raises(ValueError, match='Monomial must have length'):
+        receiver._resolve_single_monomial((1,))
+    with pytest.raises(ValueError, match='Monomial is not valid'):
+        receiver._resolve_single_monomial((4, 0))
+    with pytest.raises(ValueError, match='index out of range'):
+        receiver._resolve_single_monomial(3)
+    with pytest.raises(KeyError, match='unknown'):
+        receiver._resolve_single_monomial('unknown')
+    with pytest.raises(ValueError, match='coefficient 1'):
+        receiver._resolve_single_monomial(2.0 * x)
+    with pytest.raises(ValueError, match='exactly one'):
+        receiver._resolve_single_monomial(x + k)
+    with pytest.raises(ValueError, match='exactly one'):
+        receiver._resolve_single_monomial(d.constant(1.0))
+    with pytest.raises(ValueError, match='exactly one'):
+        receiver._resolve_single_monomial(d.constant(1.0) + x)
+    with pytest.raises(ValueError, match='Incompatible TPSA descriptors'):
+        receiver._resolve_single_monomial(madng_tpsa.Descriptor(1, 3).var(1))
 
 
 def test_derivative_rejects_invalid_monomials():
     d = madng_tpsa.Descriptor(2, 2)
     x, y = d.vars()
 
-    with pytest.raises(ValueError, match='Derivative monomial must have positive order'):
+    with pytest.raises(ValueError, match='positive order'):
         x.derivative((0, 0))
-    with pytest.raises(ValueError, match='Derivative monomial must have length'):
+    with pytest.raises(ValueError, match='Monomial must have length'):
         x.derivative((1,))
-    with pytest.raises(ValueError, match='Derivative monomial is not valid'):
+    with pytest.raises(ValueError, match='Monomial is not valid'):
         x.derivative((3, 0))
     with pytest.raises(ValueError, match='exactly one'):
         x.derivative(x + y)
+    with pytest.raises(ValueError, match='coefficient 1'):
+        x.derivative(2.0 * x)
+    with pytest.raises(ValueError, match='identity variable'):
+        x.integrate(x * x)
 
 
 def test_poisson_bracket_uses_canonical_pairs():

@@ -10,5 +10,5 @@ def test_paths():
 
 
 def test_lib_and_ffi_singletons():
-    assert madng_tpsa.lib() is madng_tpsa.lib()
-    assert madng_tpsa.ffi() is madng_tpsa.ffi()
+    assert madng_tpsa.lib is madng_tpsa.lib
+    assert madng_tpsa.ffi is madng_tpsa.ffi
