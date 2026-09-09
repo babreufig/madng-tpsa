@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from numbers import Integral, Real
-from typing import TYPE_CHECKING, Any, Literal
+from numbers import Integral
+from typing import TYPE_CHECKING, Any, Literal, SupportsComplex, SupportsFloat, overload
 
 import numpy as np
 import scipy.special
@@ -15,10 +15,9 @@ from .errors import TpsaError
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
+    from .complex_tpsa import ComplexTpsa
     from .descriptor import Descriptor
     from .formatting import FormatStyle
-
-Numeric = int | float
 
 
 class Tpsa:
@@ -128,11 +127,11 @@ class Tpsa:
         monomial_arr = ffi().new('unsigned char[]', monomial_orders)
         return lib().mad_tpsa_getm(self._ptr, len(monomial_orders), monomial_arr)
 
-    def set_const_part(self, v: Numeric) -> None:
+    def set_const_part(self, v: SupportsFloat) -> None:
         """Set the constant coefficient."""
         lib().mad_tpsa_seti(self._ptr, 0, 0.0, float(v))
 
-    def set(self, monomial: Iterable[int], value: Numeric) -> None:
+    def set(self, monomial: Iterable[int], value: SupportsFloat) -> None:
         """Set the coefficient for ``monomial``."""
         monomial_orders = list(monomial)
         self._check_monomial(monomial_orders)
@@ -142,7 +141,7 @@ class Tpsa:
     def __getitem__(self, monomial: Iterable[int]) -> float:
         return self.get(monomial)
 
-    def __setitem__(self, monomial: Iterable[int], value: Numeric) -> None:
+    def __setitem__(self, monomial: Iterable[int], value: SupportsFloat) -> None:
         self.set(monomial, value)
 
     def coefficient(
@@ -163,7 +162,7 @@ class Tpsa:
         message = 'Monomials must be one monomial or a two-dimensional batch'
         raise ValueError(message)
 
-    def monomial_coeffs(self, tol: Numeric = 1e-14) -> dict[tuple[int, ...], float]:
+    def monomial_coeffs(self, tol: SupportsFloat = 1e-14) -> dict[tuple[int, ...], float]:
         """Return stored coefficients larger than ``tol`` in absolute value.
 
         Keys are full monomial tuples with one entry per variable and parameter.
@@ -183,11 +182,11 @@ class Tpsa:
 
         return coeffs
 
-    def to_dict(self, tol: Numeric = 1e-14) -> dict[tuple[int, ...], float]:
+    def to_dict(self, tol: SupportsFloat = 1e-14) -> dict[tuple[int, ...], float]:
         """Return this series as a monomial-to-coefficient dictionary."""
         return self.monomial_coeffs(tol=tol)
 
-    def from_dict(self, coefficients: Mapping[tuple[int, ...], Numeric]) -> None:
+    def from_dict(self, coefficients: Mapping[tuple[int, ...], SupportsFloat]) -> None:
         """Replace this series with coefficients from ``coefficients``.
 
         Keys are full monomial exponent tuples with one entry per variable and
@@ -328,7 +327,7 @@ class Tpsa:
             self._raise_mad_error()
         return result
 
-    def _coerce_operand(self, other: Tpsa | Numeric) -> Tpsa:
+    def _coerce_operand(self, other: Tpsa | SupportsFloat) -> Tpsa:
         if isinstance(other, Tpsa):
             self._check_compatible(other)
             return other
@@ -421,7 +420,7 @@ class Tpsa:
             raise ValueError(message)
         return monomial
 
-    def equals(self, other: Tpsa, tol: Numeric = 0.0) -> bool:
+    def equals(self, other: Tpsa, tol: SupportsFloat = 0.0) -> bool:
         """Return whether this series and ``other`` have matching coefficients."""
         if not lib().madng_tpsa_check_tpsa_compatibility(self._ptr, other._ptr):
             return False
@@ -432,71 +431,174 @@ class Tpsa:
             return False
         return self.equals(other)
 
-    def __add__(self, other: Tpsa | Numeric) -> Tpsa:
+    @overload
+    def __add__(self, other: Tpsa | SupportsFloat) -> Tpsa: ...
+
+    @overload
+    def __add__(self, other: SupportsComplex) -> ComplexTpsa: ...
+
+    def __add__(self, other: Tpsa | SupportsFloat | SupportsComplex) -> Tpsa | ComplexTpsa:
         if isinstance(other, Tpsa):
             return self._binary_op(other, 'mad_tpsa_add')
-        result = self.descriptor.zero()
-        lib().mad_tpsa_axpb(1.0, self._ptr, float(other), result._ptr)
-        return result
+
+        if isinstance(other, SupportsFloat):
+            result = self.descriptor.zero()
+            lib().mad_tpsa_axpb(1.0, self._ptr, float(other), result._ptr)
+            return result
+
+        if isinstance(other, SupportsComplex):
+            return self.descriptor.complex_zero() + self + complex(other)
+
+        return NotImplemented
 
     __radd__ = __add__
 
-    def __sub__(self, other: Tpsa | Numeric) -> Tpsa:
+    @overload
+    def __sub__(self, other: Tpsa | SupportsFloat) -> Tpsa: ...
+
+    @overload
+    def __sub__(self, other: SupportsComplex) -> ComplexTpsa: ...
+
+    def __sub__(self, other: Tpsa | SupportsFloat | SupportsComplex) -> Tpsa | ComplexTpsa:
         if isinstance(other, Tpsa):
             return self._binary_op(other, 'mad_tpsa_sub')
-        return self.__add__(-float(other))
 
-    def __rsub__(self, other: Numeric) -> Tpsa:
-        result = self.descriptor.zero()
-        lib().mad_tpsa_axpb(-1.0, self._ptr, float(other), result._ptr)
-        return result
+        if isinstance(other, SupportsFloat):
+            return self.__add__(-float(other))
 
-    def __mul__(self, other: Tpsa | Numeric) -> Tpsa:
+        if isinstance(other, SupportsComplex):
+            return self.descriptor.complex_zero() + self - complex(other)
+
+        return NotImplemented
+
+    @overload
+    def __rsub__(self, other: SupportsFloat) -> Tpsa: ...
+
+    @overload
+    def __rsub__(self, other: SupportsComplex) -> ComplexTpsa: ...
+
+    def __rsub__(self, other: SupportsFloat | SupportsComplex) -> Tpsa | ComplexTpsa:
+        if isinstance(other, SupportsFloat):
+            result = self.descriptor.zero()
+            lib().mad_tpsa_axpb(-1.0, self._ptr, float(other), result._ptr)
+            return result
+
+        if isinstance(other, SupportsComplex):
+            return complex(other) - (self.descriptor.complex_zero() + self)
+
+        return NotImplemented
+
+    @overload
+    def __mul__(self, other: Tpsa | SupportsFloat) -> Tpsa: ...
+
+    @overload
+    def __mul__(self, other: SupportsComplex) -> ComplexTpsa: ...
+
+    def __mul__(self, other: Tpsa | SupportsFloat | SupportsComplex) -> Tpsa | ComplexTpsa:
         if isinstance(other, Tpsa):
             return self._binary_op(other, 'mad_tpsa_mul')
-        result = self.descriptor.zero()
-        lib().mad_tpsa_scl(self._ptr, float(other), result._ptr)
-        return result
+
+        if isinstance(other, SupportsFloat):
+            result = self.descriptor.zero()
+            lib().mad_tpsa_scl(self._ptr, float(other), result._ptr)
+            return result
+
+        if isinstance(other, SupportsComplex):
+            return (self.descriptor.complex_zero() + self) * complex(other)
+
+        return NotImplemented
 
     __rmul__ = __mul__
 
-    def __truediv__(self, other: Tpsa | Numeric) -> Tpsa:
+    @overload
+    def __truediv__(self, other: Tpsa | SupportsFloat) -> Tpsa: ...
+
+    @overload
+    def __truediv__(self, other: SupportsComplex) -> ComplexTpsa: ...
+
+    def __truediv__(self, other: Tpsa | SupportsFloat | SupportsComplex) -> Tpsa | ComplexTpsa:
         if isinstance(other, Tpsa):
             return self._binary_op(other, 'mad_tpsa_div')
-        if other == 0:
-            message = 'Division by zero scalar'
-            raise ZeroDivisionError(message)
-        result = self.descriptor.zero()
-        lib().mad_tpsa_divn(self._ptr, float(other), result._ptr)
-        return result
 
-    def __rtruediv__(self, other: Numeric) -> Tpsa:
-        if self.const_part == 0:
-            message = 'Cannot divide by a TPSA with zero constant coefficient'
-            raise ZeroDivisionError(message)
-        result = self.descriptor.zero()
-        lib().mad_tpsa_inv(self._ptr, float(other), result._ptr)
-        return result
+        if isinstance(other, SupportsFloat):
+            if other == 0:
+                message = 'Division by zero scalar'
+                raise ZeroDivisionError(message)
+            result = self.descriptor.zero()
+            lib().mad_tpsa_divn(self._ptr, float(other), result._ptr)
+            return result
 
-    def __pow__(self, other: Tpsa | Numeric) -> Tpsa:
-        result = self.descriptor.zero()
+        if isinstance(other, SupportsComplex):
+            return (self.descriptor.complex_zero() + self) / complex(other)
+
+        return NotImplemented
+
+    @overload
+    def __rtruediv__(self, other: SupportsFloat) -> Tpsa: ...
+
+    @overload
+    def __rtruediv__(self, other: SupportsComplex) -> ComplexTpsa: ...
+
+    def __rtruediv__(self, other: SupportsFloat | SupportsComplex) -> Tpsa | ComplexTpsa:
+        if isinstance(other, SupportsFloat):
+            if self.const_part == 0:
+                message = 'Cannot divide by a TPSA with zero constant coefficient'
+                raise ZeroDivisionError(message)
+            result = self.descriptor.zero()
+            lib().mad_tpsa_inv(self._ptr, float(other), result._ptr)
+            return result
+
+        if isinstance(other, SupportsComplex):
+            return complex(other) / (self.descriptor.complex_zero() + self)
+
+        return NotImplemented
+
+    @overload
+    def __pow__(self, other: Tpsa | SupportsFloat) -> Tpsa: ...
+
+    @overload
+    def __pow__(self, other: SupportsComplex) -> ComplexTpsa: ...
+
+    def __pow__(self, other: Tpsa | SupportsFloat | SupportsComplex) -> Tpsa | ComplexTpsa:
         if isinstance(other, Tpsa):
             if not lib().madng_tpsa_check_tpsa_compatibility(self._ptr, other._ptr):
                 message = 'Incompatible TPSA descriptors'
                 raise ValueError(message)
+            result = self.descriptor.zero()
             lib().mad_tpsa_pow(self._ptr, other._ptr, result._ptr)
-        elif isinstance(other, Integral):
-            lib().mad_tpsa_powi(self._ptr, int(other), result._ptr)
-        elif isinstance(other, Real):
-            lib().mad_tpsa_pown(self._ptr, float(other), result._ptr)
-        else:
-            return NotImplemented
-        return result
+            return result
 
-    def __rpow__(self, other: Numeric) -> Tpsa:
-        result = self * float(np.log(other))
-        lib().mad_tpsa_exp(result._ptr, result._ptr)
-        return result
+        if isinstance(other, Integral):
+            result = self.descriptor.zero()
+            lib().mad_tpsa_powi(self._ptr, int(other), result._ptr)
+            return result
+
+        if isinstance(other, SupportsFloat):
+            result = self.descriptor.zero()
+            lib().mad_tpsa_pown(self._ptr, float(other), result._ptr)
+            return result
+
+        if isinstance(other, SupportsComplex):
+            return (self.descriptor.complex_zero() + self) ** complex(other)
+
+        return NotImplemented
+
+    @overload
+    def __rpow__(self, other: SupportsFloat) -> Tpsa: ...
+
+    @overload
+    def __rpow__(self, other: SupportsComplex) -> ComplexTpsa: ...
+
+    def __rpow__(self, other: SupportsFloat | SupportsComplex) -> Tpsa | ComplexTpsa:
+        if isinstance(other, SupportsFloat):
+            result = self * float(np.log(float(other)))
+            lib().mad_tpsa_exp(result._ptr, result._ptr)
+            return result
+
+        if isinstance(other, SupportsComplex):
+            return complex(other) ** (self.descriptor.complex_zero() + self)
+
+        return NotImplemented
 
     def __neg__(self) -> Tpsa:
         return self * -1.0
@@ -507,27 +609,16 @@ class Tpsa:
     def __abs__(self) -> Tpsa:
         return self.abs()
 
-    def __float__(self) -> float:
-        return self.const_part
-
-    def __lt__(self, other: Numeric) -> bool:
-        if isinstance(other, Tpsa):
-            return NotImplemented
+    def __lt__(self, other: SupportsFloat) -> bool:
         return self.const_part < float(other)
 
-    def __le__(self, other: Numeric) -> bool:
-        if isinstance(other, Tpsa):
-            return NotImplemented
+    def __le__(self, other: SupportsFloat) -> bool:
         return self.const_part <= float(other)
 
-    def __gt__(self, other: Numeric) -> bool:
-        if isinstance(other, Tpsa):
-            return NotImplemented
+    def __gt__(self, other: SupportsFloat) -> bool:
         return self.const_part > float(other)
 
-    def __ge__(self, other: Numeric) -> bool:
-        if isinstance(other, Tpsa):
-            return NotImplemented
+    def __ge__(self, other: SupportsFloat) -> bool:
         return self.const_part >= float(other)
 
     def abs(self) -> Tpsa:
@@ -541,7 +632,7 @@ class Tpsa:
     def unit(self) -> Tpsa:
         """Return this series divided by the magnitude of its constant coefficient."""
         if self.const_part == 0.0:
-            message = 'Cannot normalize a TPSA with zero constant part'
+            message = 'Cannot normalise a TPSA with zero constant part'
             raise ZeroDivisionError(message)
         return self._unary_op('mad_tpsa_unit')
 
@@ -653,26 +744,31 @@ class Tpsa:
         """Return the imaginary error function of this series."""
         return self._unary_op('mad_tpsa_erfi')
 
-    def wofz(self) -> Tpsa:
-        """Return the real-valued Faddeeva function for this series.
+    def wofz(self) -> ComplexTpsa:
+        """Return the complex-valued Faddeeva function for this series."""
+        from .complex_tpsa import ComplexTpsa
 
-        MAD-NG names this operation ``wf``. For real TPSAs, it returns the real
-        part of SciPy's complex-valued ``scipy.special.wofz``. The imaginary
-        part is not represented by this API.
+        return ComplexTpsa.from_tpsa(self).wofz()
+
+    def wofz_real(self) -> Tpsa:
+        """Return the real-valued Faddeeva function for this series (MAD-NG's ``wf``).
+
+        For complex output use ``scipy.special.wofz`` of manually promote the TPSA
+        to complex with (``ComplexTpsa.from_tpsa``) and then call its ``wofz``.
         """
         return self._unary_op('mad_tpsa_wf')
 
-    def atan2(self, other: Tpsa | Numeric) -> Tpsa:
+    def atan2(self, other: Tpsa | SupportsFloat) -> Tpsa:
         """Return ``atan2(self, other)``."""
         other = self._coerce_operand(other)
         return self._binary_op(other, 'mad_tpsa_atan2')
 
-    def hypot(self, other: Tpsa | Numeric) -> Tpsa:
+    def hypot(self, other: Tpsa | SupportsFloat) -> Tpsa:
         """Return ``sqrt(self**2 + other**2)``."""
         other = self._coerce_operand(other)
         return self._binary_op(other, 'mad_tpsa_hypot')
 
-    def hypot3(self, other: Tpsa | Numeric, third: Tpsa | Numeric) -> Tpsa:
+    def hypot3(self, other: Tpsa | SupportsFloat, third: Tpsa | SupportsFloat) -> Tpsa:
         """Return ``sqrt(self**2 + other**2 + third**2)``."""
         other = self._coerce_operand(other)
         third = self._coerce_operand(third)

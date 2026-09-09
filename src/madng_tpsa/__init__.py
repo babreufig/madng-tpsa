@@ -14,6 +14,7 @@ algebraic operations. The coefficients are the derivatives.
 
 from ._cffi import CDEF, ffi, lib
 from ._version import __version__
+from .complex_tpsa import ComplexTpsa
 from .descriptor import Descriptor
 from .errors import TpsaError
 from .paths import core_library, include_dir
@@ -21,6 +22,7 @@ from .tpsa import Tpsa
 
 __all__ = [
     'CDEF',
+    'ComplexTpsa',
     'Descriptor',
     'Tpsa',
     'TpsaError',

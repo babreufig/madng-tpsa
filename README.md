@@ -30,7 +30,7 @@ f.grad()  # => [0, 2]
 
 # Compatible with Numpy protocol
 np.sin(f)  # => Tpsa({(0, 1): 2.0, (2, 0): 1.0, (0, 3): -1.3333333333333333})
-scipy.special.wofz(f)  # => Tpsa({(0, 0): 1.0, (0, 2): -4.0, (2, 1): -4.0})
+scipy.special.wofz(f)  # => ComplexTpsa({(0, 0): (1+0j), (0, 1): 2.256...j, (2, 0): 1.128...j, (0, 2): (-4+0j), (2, 1): (-4+0j), (0, 3): -6.018...j})
 ```
 
 Through the `xobjects` entry point declared in `pyproject.toml`, the MAD-NG TPSA C API is

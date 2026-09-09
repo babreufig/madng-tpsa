@@ -58,6 +58,91 @@ CDEF = """
     void mad_tpsa_powi(const void* a, int n, void* c);
     void mad_tpsa_pown(const void* a, double v, void* c);
 
+    void* mad_ctpsa_newd(const void* desc, unsigned char mo);
+    void mad_ctpsa_del(const void* t);
+    const void* mad_ctpsa_desc(const void* t);
+    unsigned char mad_ctpsa_ord(const void* t, _Bool hi);
+    void mad_ctpsa_setvar_r(
+        void* t, double v_re, double v_im, int iv, double scl_re, double scl_im
+    );
+    void mad_ctpsa_setprm_r(void* t, double v_re, double v_im, int ip);
+    void mad_ctpsa_setval_r(void* t, double v_re, double v_im);
+    void mad_ctpsa_clear(void* t);
+    int mad_ctpsa_isnul(const void* t);
+    int mad_ctpsa_isval(const void* t);
+    void mad_ctpsa_copy(const void* t, void* r);
+    void mad_ctpsa_cplx(const void* re, const void* im, void* r);
+    void mad_ctpsa_real(const void* t, void* r);
+    void mad_ctpsa_imag(const void* t, void* r);
+    int mad_ctpsa_equ(const void* a, const void* b, double tol);
+    void mad_ctpsa_geti_r(const void* t, int i, double _Complex* r);
+    void mad_ctpsa_getm_r(const void* t, int n, const unsigned char* m, double _Complex* r);
+    void mad_ctpsa_seti_r(
+        void* t, int i, double a_re, double a_im, double b_re, double b_im
+    );
+    void mad_ctpsa_setm_r(
+        void* t,
+        int n,
+        const unsigned char* m,
+        double a_re,
+        double a_im,
+        double b_re,
+        double b_im
+    );
+    int mad_ctpsa_cycle(
+        const void* t, int i, int n, unsigned char* m, double _Complex* v
+    );
+
+    void mad_ctpsa_add(const void* a, const void* b, void* c);
+    void mad_ctpsa_sub(const void* a, const void* b, void* c);
+    void mad_ctpsa_mul(const void* a, const void* b, void* c);
+    void mad_ctpsa_div(const void* a, const void* b, void* c);
+    void mad_ctpsa_pow(const void* a, const void* b, void* c);
+    void mad_ctpsa_powi(const void* a, int n, void* c);
+    void mad_ctpsa_pown_r(const void* a, double v_re, double v_im, void* c);
+    void mad_ctpsa_addt(const void* a, const void* b, void* c);
+    void mad_ctpsa_subt(const void* a, const void* b, void* c);
+    void mad_ctpsa_tsub(const void* a, const void* b, void* c);
+    void mad_ctpsa_mult(const void* a, const void* b, void* c);
+    void mad_ctpsa_divt(const void* a, const void* b, void* c);
+    void mad_ctpsa_tdiv(const void* a, const void* b, void* c);
+    void mad_ctpsa_powt(const void* a, const void* b, void* c);
+    void mad_ctpsa_tpow(const void* a, const void* b, void* c);
+    void mad_ctpsa_axpb_r(
+        double a_re, double a_im, const void* x, double b_re, double b_im, void* r
+    );
+    void mad_ctpsa_scl_r(const void* a, double v_re, double v_im, void* c);
+    void mad_ctpsa_divn_r(const void* a, double v_re, double v_im, void* c);
+    void mad_ctpsa_inv_r(const void* a, double v_re, double v_im, void* c);
+
+    double mad_ctpsa_nrm(const void* a);
+    void mad_ctpsa_unit(const void* a, void* c);
+    void mad_ctpsa_conj(const void* a, void* c);
+    void mad_ctpsa_sqrt(const void* a, void* c);
+    void mad_ctpsa_exp(const void* a, void* c);
+    void mad_ctpsa_log(const void* a, void* c);
+    void mad_ctpsa_sin(const void* a, void* c);
+    void mad_ctpsa_cos(const void* a, void* c);
+    void mad_ctpsa_tan(const void* a, void* c);
+    void mad_ctpsa_sinh(const void* a, void* c);
+    void mad_ctpsa_cosh(const void* a, void* c);
+    void mad_ctpsa_tanh(const void* a, void* c);
+    void mad_ctpsa_asin(const void* a, void* c);
+    void mad_ctpsa_acos(const void* a, void* c);
+    void mad_ctpsa_atan(const void* a, void* c);
+    void mad_ctpsa_asinh(const void* a, void* c);
+    void mad_ctpsa_acosh(const void* a, void* c);
+    void mad_ctpsa_atanh(const void* a, void* c);
+    void mad_ctpsa_erf(const void* a, void* c);
+    void mad_ctpsa_erfc(const void* a, void* c);
+    void mad_ctpsa_erfcx(const void* a, void* c);
+    void mad_ctpsa_erfi(const void* a, void* c);
+    void mad_ctpsa_wf(const void* a, void* c);
+    void mad_ctpsa_integ(const void* a, void* c, int iv);
+    void mad_ctpsa_deriv(const void* a, void* c, int iv);
+    void mad_ctpsa_derivm(const void* a, void* c, int n, const unsigned char* m);
+    void mad_ctpsa_poisbra(const void* a, const void* b, void* c, int nv);
+
     void mad_tpsa_scl(const void* a, double v, void* c);
     void mad_tpsa_divn(const void* a, double v, void* c);
     void mad_tpsa_inv(const void* a, double v, void* c);

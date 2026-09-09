@@ -1,12 +1,16 @@
 """Tests for TPSA mathematical functions and NumPy ufunc dispatch."""
 
 import math
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pytest
 import scipy.special
 
 import madng_tpsa
+
+if TYPE_CHECKING:
+    from typing import Any
 
 
 def _constant(value: float) -> madng_tpsa.Tpsa:
@@ -95,11 +99,10 @@ def test_selected_math_derivatives():
 @pytest.mark.parametrize(
     ('method_name', 'special_func', 'value', 'expected'),
     [
-        ('erf', scipy.special.erf, 0.5, scipy.special.erf(0.5)),
-        ('erfc', scipy.special.erfc, 0.5, scipy.special.erfc(0.5)),
-        ('erfcx', scipy.special.erfcx, 0.5, scipy.special.erfcx(0.5)),
-        ('erfi', scipy.special.erfi, 0.5, scipy.special.erfi(0.5)),
-        ('wofz', scipy.special.wofz, 0.5, scipy.special.wofz(0.5).real),
+        ('erf', scipy.special.erf, 0.5, cast('Any', scipy.special.erf)(0.5)),
+        ('erfc', scipy.special.erfc, 0.5, cast('Any', scipy.special.erfc)(0.5)),
+        ('erfcx', scipy.special.erfcx, 0.5, cast('Any', scipy.special.erfcx)(0.5)),
+        ('erfi', scipy.special.erfi, 0.5, cast('Any', scipy.special.erfi)(0.5)),
     ],
 )
 def test_scipy_special_methods_and_ufuncs(method_name, special_func, value, expected):
@@ -108,6 +111,18 @@ def test_scipy_special_methods_and_ufuncs(method_name, special_func, value, expe
 
     assert method_result.const_part == pytest.approx(expected)
     assert special_func(t) == method_result
+
+
+def test_wofz_of_a_real_tpsa_returns_a_complex_tpsa():
+    t = _constant(0.5)
+    expected = scipy.special.wofz(np.complex128(0.5))
+
+    assert t.wofz_real().const_part == pytest.approx(expected.real)
+
+    result = t.__array_ufunc__(scipy.special.wofz, '__call__', t)
+
+    assert isinstance(result, madng_tpsa.ComplexTpsa)
+    assert result.const_part == pytest.approx(expected)
 
 
 @pytest.mark.parametrize(

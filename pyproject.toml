@@ -28,8 +28,10 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "coverage",
     "pre-commit",
     "pytest",
+    "pytest-github-actions-annotate-failures",
     "ruff==0.15.17",
     "ty==0.0.63",
 ]
@@ -62,6 +64,14 @@ build_info = "madng_tpsa.xobjects_hook:get_build_info"
 
 [tool.pytest]
 filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+data_file = "coverage"
+omit = ["*/_version.py"]
+parallel = true
+relative_files = true
+source = ["src"]
 
 [tool.ruff]
 exclude = ["madng"]

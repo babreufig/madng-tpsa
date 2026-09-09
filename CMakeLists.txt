@@ -129,6 +129,7 @@ set(MADNG_PUBLIC_HEADERS
   mad_num.h
   mad_def.h
   mad_tpsa.h
+  mad_ctpsa.h
   mad_mono.h
   mad_desc.h
 )
