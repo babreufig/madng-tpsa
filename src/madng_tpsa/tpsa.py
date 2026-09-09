@@ -744,12 +744,17 @@ class Tpsa:
         """Return the imaginary error function of this series."""
         return self._unary_op('mad_tpsa_erfi')
 
-    def wofz(self) -> Tpsa:
-        """Return the real-valued Faddeeva function for this series.
+    def wofz(self) -> ComplexTpsa:
+        """Return the complex-valued Faddeeva function for this series."""
+        from .complex_tpsa import ComplexTpsa
 
-        MAD-NG names this operation ``wf``. For real TPSAs, it returns the real
-        part of SciPy's complex-valued ``scipy.special.wofz``. The imaginary
-        part is not represented by this API.
+        return ComplexTpsa.from_tpsa(self).wofz()
+
+    def wofz_real(self) -> Tpsa:
+        """Return the real-valued Faddeeva function for this series (MAD-NG's ``wf``).
+
+        For complex output use ``scipy.special.wofz`` of manually promote the TPSA
+        to complex with (``ComplexTpsa.from_tpsa``) and then call its ``wofz``.
         """
         return self._unary_op('mad_tpsa_wf')
 

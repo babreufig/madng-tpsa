@@ -141,9 +141,11 @@ class ComplexTpsa:
         coefficients: dict[tuple[int, ...], complex] = {}
 
         index = -1
-        while (index := lib().mad_ctpsa_cycle(
-            self._ptr, index, monomial_len, monomial_arr, coefficient
-        )) >= 0:
+        while (
+            index := lib().mad_ctpsa_cycle(
+                self._ptr, index, monomial_len, monomial_arr, coefficient
+            )
+        ) >= 0:
             value = complex(coefficient[0])
             if abs(value) > tol:
                 coefficients[tuple(monomial_arr)] = value
@@ -175,8 +177,10 @@ class ComplexTpsa:
 
     def grad(self) -> list[complex]:
         """First-order coefficients for the descriptor variables."""
-        return [self.get([int(index == variable) for index in range(self.descriptor.num_vars)])
-                for variable in range(self.descriptor.num_vars)]
+        return [
+            self.get([int(index == variable) for index in range(self.descriptor.num_vars)])
+            for variable in range(self.descriptor.num_vars)
+        ]
 
     def param_grad(self) -> list[complex]:
         """First-order coefficients for the descriptor parameters."""
@@ -235,8 +239,10 @@ class ComplexTpsa:
         elif isinstance(num_pairs, int) and not isinstance(num_pairs, bool):
             c_num_vars = 2 * num_pairs
             if not 0 < c_num_vars <= self.descriptor.num_vars:
-                raise ValueError(f'Parameter num_pairs must satisfy 0 < 2 * num_pairs <= '
-                                 f'{self.descriptor.num_vars}')
+                raise ValueError(
+                    f'Parameter num_pairs must satisfy 0 < 2 * num_pairs <= '
+                    f'{self.descriptor.num_vars}'
+                )
         else:
             message = "Parameter num_pairs must be 'all' or an integer"
             raise ValueError(message)
@@ -252,9 +258,7 @@ class ComplexTpsa:
 
     def equals(self, other: ComplexTpsa, tol: float = 0.0) -> bool:
         """Return whether this and ``other`` have matching coefficients."""
-        return bool(
-            self._compatible(other) and lib().mad_ctpsa_equ(self._ptr, other._ptr, tol)
-        )
+        return bool(self._compatible(other) and lib().mad_ctpsa_equ(self._ptr, other._ptr, tol))
 
     def _binary_op(self, other: ComplexTpsa | Tpsa, function_name: str) -> ComplexTpsa:
         self._check_compatible(other)
