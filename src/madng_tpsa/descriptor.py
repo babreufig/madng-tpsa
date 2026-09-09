@@ -88,11 +88,11 @@ class Descriptor:
 
         if max_orders is not None:
             max_orders_arr = cls._resolve_max_orders(max_orders, num_vars + num_params)
-            ptr = lib().mad_desc_newvpo(num_vars, order, num_params, param_order, max_orders_arr)
+            ptr = lib.mad_desc_newvpo(num_vars, order, num_params, param_order, max_orders_arr)
         elif num_params > 0:
-            ptr = lib().mad_desc_newvp(num_vars, order, num_params, param_order)
+            ptr = lib.mad_desc_newvp(num_vars, order, num_params, param_order)
         else:
-            ptr = lib().mad_desc_newv(num_vars, order)
+            ptr = lib.mad_desc_newv(num_vars, order)
 
         descriptor = cls.from_ptr(ptr, var_labels=var_labels, param_labels=param_labels)
 
@@ -164,7 +164,7 @@ class Descriptor:
         param_labels: Sequence[str] | None = None,
     ) -> Descriptor:
         """Return the interned ``Descriptor`` for a raw C pointer."""
-        key = int(ffi().cast('uintptr_t', ptr))
+        key = int(ffi.cast('uintptr_t', ptr))
         descriptor = cls._instances_by_ptr.get(key)
 
         if descriptor is not None:
@@ -188,8 +188,8 @@ class Descriptor:
         if getattr(self, '_ptr', None) is None:
             return
 
-        if _cffi._lib is not None:
-            _cffi._lib.mad_desc_del(self._ptr)
+        if getattr(_cffi, 'lib', None) is not None:
+            _cffi.lib.mad_desc_del(self._ptr)
         self._ptr = None
 
     def _default_var_labels(self) -> tuple[str, ...]:
@@ -218,11 +218,11 @@ class Descriptor:
 
     def _get_descriptor_attrs(self) -> _DescriptorAttrs:
         """Query the attributes of the GTPSA descriptor."""
-        order_ptr = ffi().new('unsigned char*')
-        num_params_ptr = ffi().new('int*')
-        param_order_ptr = ffi().new('unsigned char*')
+        order_ptr = ffi.new('unsigned char*')
+        num_params_ptr = ffi.new('int*')
+        param_order_ptr = ffi.new('unsigned char*')
 
-        num_vars = lib().mad_desc_getnv(self._ptr, order_ptr, num_params_ptr, param_order_ptr)
+        num_vars = lib.mad_desc_getnv(self._ptr, order_ptr, num_params_ptr, param_order_ptr)
 
         return _DescriptorAttrs(
             num_vars=num_vars,
@@ -260,27 +260,27 @@ class Descriptor:
     @property
     def max_orders(self) -> tuple[int, ...]:
         """Per-variable and per-parameter maximum orders."""
-        max_order_arr = ffi().new('unsigned char[]', self.monomial_length)
-        lib().mad_desc_maxord(self._ptr, self.monomial_length, max_order_arr)
+        max_order_arr = ffi.new('unsigned char[]', self.monomial_length)
+        lib.mad_desc_maxord(self._ptr, self.monomial_length, max_order_arr)
         return tuple(max_order_arr)
 
     def is_valid_monomial(self, monomial: Sequence[int]) -> bool:
         """Whether ``monomial`` is representable (querying beyond-order aborts C)."""
-        arr = ffi().new('unsigned char[]', monomial)
-        return bool(lib().mad_desc_isvalidm(self._ptr, len(monomial), arr))
+        arr = ffi.new('unsigned char[]', monomial)
+        return bool(lib.mad_desc_isvalidm(self._ptr, len(monomial), arr))
 
     def monomial_index(self, monomial: Iterable[int]) -> int:
         """Index of ``monomial`` in the descriptor's coefficient array."""
         m = tuple(int(x) for x in monomial)
         if not self.is_valid_monomial(m):
             raise ValueError(f'Invalid monomial {tuple(m)} for this descriptor')
-        arr = ffi().new('unsigned char[]', m)
-        return lib().mad_desc_idxm(self._ptr, len(m), arr)
+        arr = ffi.new('unsigned char[]', m)
+        return lib.mad_desc_idxm(self._ptr, len(m), arr)
 
     def constant(self, value: SupportsFloat, /) -> Tpsa:
         """Create a constant TPSA series on this descriptor."""
         t = self.zero()
-        lib().mad_tpsa_seti(t.ptr, 0, 0.0, float(value))
+        lib.mad_tpsa_seti(t.ptr, 0, 0.0, float(value))
         return t
 
     def zero(self, order: int | None = None) -> Tpsa:
@@ -311,7 +311,7 @@ class Descriptor:
         variable_index = self._var_index(index)
         t = self.complex_zero(order=order)
         value = complex(value)
-        lib().mad_ctpsa_setvar_r(
+        lib.mad_ctpsa_setvar_r(
             t.ptr,
             value.real,
             value.imag,
@@ -347,7 +347,7 @@ class Descriptor:
         parameter_index = self._param_index(index)
         t = self.complex_zero(order=order)
         value = complex(value)
-        lib().mad_ctpsa_setprm_r(t.ptr, value.real, value.imag, parameter_index)
+        lib.mad_ctpsa_setprm_r(t.ptr, value.real, value.imag, parameter_index)
         return t
 
     def complex_params(self) -> tuple[ComplexTpsa, ...]:
@@ -397,7 +397,7 @@ class Descriptor:
             message = 'Variable order must be positive'
             raise ValueError(message)
         t = Tpsa(self, order=order)
-        lib().mad_tpsa_setvar(t.ptr, float(value), int(index), 0.0)
+        lib.mad_tpsa_setvar(t.ptr, float(value), int(index), 0.0)
         return t
 
     def vars(self, values: Sequence[SupportsFloat] | None = None) -> tuple[Tpsa, ...]:
@@ -427,7 +427,7 @@ class Descriptor:
             message = 'Parameter order must be 1'
             raise ValueError(message)
         t = Tpsa(self, order=order)
-        lib().mad_tpsa_setprm(t.ptr, float(value), int(index))
+        lib.mad_tpsa_setprm(t.ptr, float(value), int(index))
         return t
 
     def params(self) -> tuple[Tpsa, ...]:
@@ -438,7 +438,7 @@ class Descriptor:
         return isinstance(other, Descriptor) and self._ptr == other._ptr
 
     def __hash__(self) -> int:
-        return int(ffi().cast('uintptr_t', self._ptr))
+        return int(ffi.cast('uintptr_t', self._ptr))
 
     def __repr__(self) -> str:
         attrs = self._get_descriptor_attrs()

@@ -100,7 +100,7 @@ def test_complex_from_ptr_interns_and_infers_descriptor():
 
     assert madng_tpsa.ComplexTpsa.from_ptr(t.ptr, d) is t
 
-    ptr = lib().mad_ctpsa_newd(d.ptr, d.order)
+    ptr = lib.mad_ctpsa_newd(d.ptr, d.order)
     owned = madng_tpsa.ComplexTpsa.from_ptr(ptr, owns=True)
 
     assert owned.ptr == ptr

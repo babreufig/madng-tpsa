@@ -366,7 +366,7 @@ def test_from_ptr_returns_same_object():
 
 def test_from_ptr_infers_descriptor_for_a_new_owned_pointer():
     d = madng_tpsa.Descriptor(2, 3)
-    ptr = lib().mad_tpsa_newd(d.ptr, d.order)
+    ptr = lib.mad_tpsa_newd(d.ptr, d.order)
 
     t = madng_tpsa.Tpsa.from_ptr(ptr, owns=True)
 

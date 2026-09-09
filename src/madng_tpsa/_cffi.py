@@ -227,19 +227,6 @@ CDEF = """
     );
 """
 
-_ffi = cffi.FFI()
-_ffi.cdef(CDEF)
-_lib: Any = None
-
-
-def lib() -> Any:
-    """Return the lazily loaded ``libmadng_tpsa`` handle."""
-    global _lib
-    if _lib is None:
-        _lib = _ffi.dlopen(core_library())
-    return _lib
-
-
-def ffi() -> cffi.FFI:
-    """Return the shared CFFI parser/context."""
-    return _ffi
+ffi = cffi.FFI()
+ffi.cdef(CDEF)
+lib: Any = ffi.dlopen(core_library())

@@ -69,8 +69,8 @@ class _TpsaBase(ABC, Generic[_Coefficient, _InputCoefficient]):
 
     @staticmethod
     def _raise_mad_error() -> None:
-        location = ffi().string(lib().madng_tpsa_last_error_location()).decode()
-        message = ffi().string(lib().madng_tpsa_last_error_message()).decode()
+        location = ffi.string(lib.madng_tpsa_last_error_location()).decode()
+        message = ffi.string(lib.madng_tpsa_last_error_message()).decode()
         if location:
             raise TpsaError(f'GTPSA error in {location}: {message}')
         raise TpsaError(f'GTPSA error: {message}')
@@ -136,8 +136,8 @@ class _TpsaBase(ABC, Generic[_Coefficient, _InputCoefficient]):
 
         if isinstance(monomial, Tpsa):
             self._check_compatible(monomial)
-            monomial_arr = ffi().new('unsigned char[]', length)
-            if lib().madng_tpsa_tpsa_single_monomial(monomial.ptr, length, monomial_arr) < 0:
+            monomial_arr = ffi.new('unsigned char[]', length)
+            if lib.madng_tpsa_tpsa_single_monomial(monomial.ptr, length, monomial_arr) < 0:
                 message = 'TPSA must contain exactly one non-constant monomial with coefficient 1'
                 raise ValueError(message)
         elif isinstance(monomial, (int, str)):

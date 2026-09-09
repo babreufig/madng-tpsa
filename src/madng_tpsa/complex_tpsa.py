@@ -27,11 +27,11 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
     def __init__(self, descriptor: Descriptor, order: int | None = None) -> None:
         """Create a zero complex series on ``descriptor``."""
         if order is None:
-            order = lib().mad_tpsa_dflt
+            order = lib.mad_tpsa_dflt
 
         self._descriptor = descriptor
-        self._ptr = lib().mad_ctpsa_newd(descriptor.ptr, order)
-        descriptor._complex_tpsas[int(ffi().cast('uintptr_t', self._ptr))] = self
+        self._ptr = lib.mad_ctpsa_newd(descriptor.ptr, order)
+        descriptor._complex_tpsas[int(ffi.cast('uintptr_t', self._ptr))] = self
 
     @classmethod
     def from_ptr(
@@ -43,7 +43,7 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
         pointers require ``owns=True`` to prevent multiple Python owners for one
         C allocation.
         """
-        key = int(ffi().cast('uintptr_t', ptr))
+        key = int(ffi.cast('uintptr_t', ptr))
 
         if descriptor is not None:
             existing = descriptor._complex_tpsas.get(key)
@@ -61,7 +61,7 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
         else:
             from .descriptor import Descriptor
 
-            descriptor = Descriptor.from_ptr(lib().mad_ctpsa_desc(ptr))
+            descriptor = Descriptor.from_ptr(lib.mad_ctpsa_desc(ptr))
             existing = descriptor._complex_tpsas.get(key)
             if existing is not None:
                 return existing
@@ -81,12 +81,12 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
             real._check_compatible(imag)
 
         result = cls(real.descriptor, order=real.order)
-        lib().mad_ctpsa_cplx(real.ptr, imag.ptr, result.ptr)
+        lib.mad_ctpsa_cplx(real.ptr, imag.ptr, result.ptr)
         return result
 
     def __del__(self) -> None:
-        if getattr(self, '_ptr', None) is not None and _cffi._lib is not None:
-            _cffi._lib.mad_ctpsa_del(self._ptr)
+        if getattr(self, '_ptr', None) is not None and getattr(_cffi, 'lib', None) is not None:
+            _cffi.lib.mad_ctpsa_del(self._ptr)
             self._ptr = None
 
     @property
@@ -103,13 +103,13 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
     def order(self) -> int:
         """Maximum order stored by this series."""
         highest_non_zero_order = False
-        return lib().mad_ctpsa_ord(self._ptr, highest_non_zero_order)
+        return lib.mad_ctpsa_ord(self._ptr, highest_non_zero_order)
 
     @property
     def max_nonzero_order(self) -> int:
         """Highest order currently containing a non-zero coefficient."""
         highest_non_zero_order = True
-        return lib().mad_ctpsa_ord(self._ptr, highest_non_zero_order)
+        return lib.mad_ctpsa_ord(self._ptr, highest_non_zero_order)
 
     @property
     def const_part(self) -> complex:
@@ -117,17 +117,17 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
         return self._geti(0)
 
     def _geti(self, index: int) -> complex:
-        value = ffi().new('double _Complex*')
-        lib().mad_ctpsa_geti_r(self._ptr, index, value)
+        value = ffi.new('double _Complex*')
+        lib.mad_ctpsa_geti_r(self._ptr, index, value)
         return complex(value[0])
 
     def get(self, monomial: Iterable[int]) -> complex:
         """Return the coefficient for ``monomial``."""
         monomial_orders = list(monomial)
         self._check_monomial(monomial_orders)
-        monomial_arr = ffi().new('unsigned char[]', monomial_orders)
-        value = ffi().new('double _Complex*')
-        lib().mad_ctpsa_getm_r(self._ptr, len(monomial_orders), monomial_arr, value)
+        monomial_arr = ffi.new('unsigned char[]', monomial_orders)
+        value = ffi.new('double _Complex*')
+        lib.mad_ctpsa_getm_r(self._ptr, len(monomial_orders), monomial_arr, value)
         return complex(value[0])
 
     def set_const_part(self, value: SupportsFloat | SupportsComplex) -> None:
@@ -135,15 +135,15 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
         self._seti(0, complex(value))
 
     def _seti(self, index: int, value: complex) -> None:
-        lib().mad_ctpsa_seti_r(self._ptr, index, 0.0, 0.0, value.real, value.imag)
+        lib.mad_ctpsa_seti_r(self._ptr, index, 0.0, 0.0, value.real, value.imag)
 
     def set(self, monomial: Iterable[int], value: SupportsFloat | SupportsComplex) -> None:
         """Set the coefficient for ``monomial``."""
         monomial_orders = list(monomial)
         self._check_monomial(monomial_orders)
-        monomial_arr = ffi().new('unsigned char[]', monomial_orders)
+        monomial_arr = ffi.new('unsigned char[]', monomial_orders)
         coefficient = complex(value)
-        lib().mad_ctpsa_setm_r(
+        lib.mad_ctpsa_setm_r(
             self._ptr,
             len(monomial_orders),
             monomial_arr,
@@ -156,15 +156,13 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
     def monomial_coeffs(self, tol: float = 1e-14) -> dict[tuple[int, ...], complex]:
         """Return stored coefficients with magnitude greater than ``tol``."""
         monomial_len = self.descriptor.monomial_length
-        monomial_arr = ffi().new('unsigned char[]', monomial_len)
-        coefficient = ffi().new('double _Complex*')
+        monomial_arr = ffi.new('unsigned char[]', monomial_len)
+        coefficient = ffi.new('double _Complex*')
         coefficients: dict[tuple[int, ...], complex] = {}
 
         index = -1
         while (
-            index := lib().mad_ctpsa_cycle(
-                self._ptr, index, monomial_len, monomial_arr, coefficient
-            )
+            index := lib.mad_ctpsa_cycle(self._ptr, index, monomial_len, monomial_arr, coefficient)
         ) >= 0:
             value = complex(coefficient[0])
             if abs(value) > tol:
@@ -173,15 +171,15 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
 
     def is_zero(self) -> bool:
         """Return whether this series has no non-zero coefficients."""
-        return bool(lib().mad_ctpsa_isnul(self._ptr))
+        return bool(lib.mad_ctpsa_isnul(self._ptr))
 
     def is_constant(self) -> bool:
         """Return whether this series has no non-constant coefficients."""
-        return bool(lib().mad_ctpsa_isval(self._ptr))
+        return bool(lib.mad_ctpsa_isval(self._ptr))
 
     def clear(self) -> None:
         """Set all coefficients to zero in place."""
-        lib().mad_ctpsa_clear(self._ptr)
+        lib.mad_ctpsa_clear(self._ptr)
 
     def grad(self) -> list[complex]:
         """First-order coefficients for the descriptor variables."""
@@ -203,19 +201,19 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
     def copy(self) -> ComplexTpsa:
         """Return an independent copy of this series."""
         result = self.descriptor.complex_zero()
-        lib().mad_ctpsa_copy(self._ptr, result._ptr)
+        lib.mad_ctpsa_copy(self._ptr, result._ptr)
         return result
 
     def real(self) -> Tpsa:
         """Return the real part as a real TPSA."""
         result = self.descriptor.zero()
-        lib().mad_ctpsa_real(self._ptr, result._ptr)
+        lib.mad_ctpsa_real(self._ptr, result._ptr)
         return result
 
     def imag(self) -> Tpsa:
         """Return the imaginary part as a real TPSA."""
         result = self.descriptor.zero()
-        lib().mad_ctpsa_imag(self._ptr, result._ptr)
+        lib.mad_ctpsa_imag(self._ptr, result._ptr)
         return result
 
     def integrate(self, variable: int | str | Tpsa) -> ComplexTpsa:
@@ -229,7 +227,7 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
             :meth:`_resolve_single_monomial` for accepted inputs.
         """
         result = self.descriptor.complex_zero()
-        lib().mad_ctpsa_integ(self._ptr, result._ptr, self._integration_index(variable))
+        lib.mad_ctpsa_integ(self._ptr, result._ptr, self._integration_index(variable))
         return result
 
     def derivative(self, variable: int | str | tuple[int, ...] | Tpsa) -> ComplexTpsa:
@@ -244,8 +242,8 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
         """
         result = self.descriptor.complex_zero()
         monomial = self._resolve_single_monomial(variable)
-        monomial_arr = ffi().new('unsigned char[]', monomial)
-        lib().mad_ctpsa_derivm(self._ptr, result._ptr, len(monomial), monomial_arr)
+        monomial_arr = ffi.new('unsigned char[]', monomial)
+        lib.mad_ctpsa_derivm(self._ptr, result._ptr, len(monomial), monomial_arr)
         return result
 
     def poisson_bracket(
@@ -268,7 +266,7 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
             message = "Parameter num_pairs must be 'all' or an integer"
             raise ValueError(message)
         result = self.descriptor.complex_zero()
-        lib().mad_ctpsa_poisbra(self._ptr, other._ptr, result._ptr, c_num_vars)
+        lib.mad_ctpsa_poisbra(self._ptr, other._ptr, result._ptr, c_num_vars)
         return result
 
     def __repr__(self) -> str:
@@ -279,23 +277,21 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
 
     def equals(self, other: ComplexTpsa, tol: float = 0.0) -> bool:
         """Return whether this and ``other`` have matching coefficients."""
-        return bool(self._compatible(other) and lib().mad_ctpsa_equ(self._ptr, other._ptr, tol))
+        return bool(self._compatible(other) and lib.mad_ctpsa_equ(self._ptr, other._ptr, tol))
 
     def _binary_op(self, other: ComplexTpsa | Tpsa, function_name: str) -> ComplexTpsa:
         self._check_compatible(other)
         result = self.descriptor.complex_zero()
-        function = ffi().addressof(lib(), function_name)
-        status = lib().madng_tpsa_protected_binary_call(
-            function, self._ptr, other._ptr, result._ptr
-        )
+        function = ffi.addressof(lib, function_name)
+        status = lib.madng_tpsa_protected_binary_call(function, self._ptr, other._ptr, result._ptr)
         if status:
             self._raise_mad_error()
         return result
 
     def _unary_op(self, function_name: str) -> ComplexTpsa:
         result = self.descriptor.complex_zero()
-        function = ffi().addressof(lib(), function_name)
-        status = lib().madng_tpsa_protected_unary_call(function, self._ptr, result._ptr)
+        function = ffi.addressof(lib, function_name)
+        status = lib.madng_tpsa_protected_unary_call(function, self._ptr, result._ptr)
         if status:
             self._raise_mad_error()
         return result
@@ -367,7 +363,7 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
                 message = 'Division by zero scalar'
                 raise ZeroDivisionError(message)
             result = self.descriptor.complex_zero()
-            lib().mad_ctpsa_divn_r(self._ptr, value.real, value.imag, result._ptr)
+            lib.mad_ctpsa_divn_r(self._ptr, value.real, value.imag, result._ptr)
             return result
 
         return NotImplemented
@@ -385,7 +381,7 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
                 raise ZeroDivisionError(message)
             value = complex(other)
             result = self.descriptor.complex_zero()
-            lib().mad_ctpsa_inv_r(self._ptr, value.real, value.imag, result._ptr)
+            lib.mad_ctpsa_inv_r(self._ptr, value.real, value.imag, result._ptr)
             return result
 
         return NotImplemented
@@ -399,13 +395,13 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
 
         if isinstance(other, Integral):
             result = self.descriptor.complex_zero()
-            lib().mad_ctpsa_powi(self._ptr, int(other), result._ptr)
+            lib.mad_ctpsa_powi(self._ptr, int(other), result._ptr)
             return result
 
         if isinstance(other, (SupportsFloat, SupportsComplex)):
             value = complex(other)
             result = self.descriptor.complex_zero()
-            lib().mad_ctpsa_pown_r(self._ptr, value.real, value.imag, result._ptr)
+            lib.mad_ctpsa_pown_r(self._ptr, value.real, value.imag, result._ptr)
             return result
 
         return NotImplemented
@@ -430,14 +426,14 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
 
     def _axpb(self, scale: complex, offset: complex) -> ComplexTpsa:
         result = self.descriptor.complex_zero()
-        lib().mad_ctpsa_axpb_r(
+        lib.mad_ctpsa_axpb_r(
             scale.real, scale.imag, self._ptr, offset.real, offset.imag, result._ptr
         )
         return result
 
     def _scale(self, value: complex) -> ComplexTpsa:
         result = self.descriptor.complex_zero()
-        lib().mad_ctpsa_scl_r(self._ptr, value.real, value.imag, result._ptr)
+        lib.mad_ctpsa_scl_r(self._ptr, value.real, value.imag, result._ptr)
         return result
 
     def conjugate(self) -> ComplexTpsa:
@@ -446,7 +442,7 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
 
     def norm(self) -> float:
         """Return the sum of magnitudes of the stored coefficients."""
-        return lib().mad_ctpsa_nrm(self._ptr)
+        return lib.mad_ctpsa_nrm(self._ptr)
 
     def unit(self) -> ComplexTpsa:
         """Return this series normalised by the magnitude of its constant part."""
@@ -550,15 +546,13 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
         result: ComplexTpsa,
         function_name: str,
     ) -> None:
-        function = ffi().addressof(lib(), function_name)
-        status = lib().madng_tpsa_protected_binary_call(
-            function, left._ptr, right._ptr, result._ptr
-        )
+        function = ffi.addressof(lib, function_name)
+        status = lib.madng_tpsa_protected_binary_call(function, left._ptr, right._ptr, result._ptr)
         if status:
             self._raise_mad_error()
 
     def _compatible(self, other: ComplexTpsa | Tpsa) -> bool:
-        return bool(lib().madng_tpsa_check_tpsa_compatibility(self._ptr, other._ptr))
+        return bool(lib.madng_tpsa_check_tpsa_compatibility(self._ptr, other._ptr))
 
     def _check_compatible(self, other: ComplexTpsa | Tpsa) -> None:
         if not self._compatible(other):
