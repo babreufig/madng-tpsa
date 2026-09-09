@@ -10,17 +10,18 @@ import scipy.special
 
 from . import _cffi
 from ._cffi import ffi, lib
+from ._tpsa_base import _TpsaBase
 from .errors import TpsaError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping, Sequence
+    from collections.abc import Iterable
 
     from .complex_tpsa import ComplexTpsa
     from .descriptor import Descriptor
     from .formatting import FormatStyle
 
 
-class Tpsa:
+class Tpsa(_TpsaBase[float, SupportsFloat]):
     """A truncated power series in the algebraic space defined by a descriptor."""
 
     __slots__ = ('_descriptor', '_ptr', '__weakref__')
@@ -138,30 +139,6 @@ class Tpsa:
         monomial_arr = ffi().new('unsigned char[]', monomial_orders)
         lib().mad_tpsa_setm(self._ptr, len(monomial_orders), monomial_arr, 0.0, float(value))
 
-    def __getitem__(self, monomial: Iterable[int]) -> float:
-        return self.get(monomial)
-
-    def __setitem__(self, monomial: Iterable[int], value: SupportsFloat) -> None:
-        self.set(monomial, value)
-
-    def coefficient(
-        self,
-        monomials: Sequence[int] | Sequence[Sequence[int]] | np.ndarray,
-    ) -> float | np.ndarray:
-        """Return coefficients for one monomial or a batch of monomials.
-
-        A monomial gives the exponent for each variable and parameter in the
-        descriptor. A one-dimensional input returns one float. A two-dimensional
-        input returns a NumPy array with one coefficient per row.
-        """
-        monomial_arr = np.asarray(monomials, dtype=int)
-        if monomial_arr.ndim == 1:
-            return self.get(tuple(monomial_arr))
-        if monomial_arr.ndim == 2:
-            return np.array([self.get(tuple(row)) for row in monomial_arr])
-        message = 'Monomials must be one monomial or a two-dimensional batch'
-        raise ValueError(message)
-
     def monomial_coeffs(self, tol: SupportsFloat = 1e-14) -> dict[tuple[int, ...], float]:
         """Return stored coefficients larger than ``tol`` in absolute value.
 
@@ -181,20 +158,6 @@ class Tpsa:
             coeffs[monomial] = coefficient
 
         return coeffs
-
-    def to_dict(self, tol: SupportsFloat = 1e-14) -> dict[tuple[int, ...], float]:
-        """Return this series as a monomial-to-coefficient dictionary."""
-        return self.monomial_coeffs(tol=tol)
-
-    def from_dict(self, coefficients: Mapping[tuple[int, ...], SupportsFloat]) -> None:
-        """Replace this series with coefficients from ``coefficients``.
-
-        Keys are full monomial exponent tuples with one entry per variable and
-        parameter. Existing coefficients are cleared before the new ones are set.
-        """
-        self.clear()
-        for monomial, coefficient in coefficients.items():
-            self.set(monomial, coefficient)
 
     def is_zero(self) -> bool:
         """Return whether this series has no non-zero coefficients."""
@@ -242,9 +205,10 @@ class Tpsa:
         ----------
         variable
             May be a label, a 1-based variable/parameter index, or a TPSA identity
-            variable with exactly one first-order monomial of coefficient 1.
+            variable with exactly one first-order monomial of coefficient 1. See
+            :meth:`_resolve_single_monomial` for accepted inputs.
         """
-        variable_index = self._variable_index(variable)
+        variable_index = self._integration_index(variable)
         result = self.descriptor.zero()
         lib().mad_tpsa_integ(self._ptr, result._ptr, variable_index)
         return result
@@ -255,32 +219,15 @@ class Tpsa:
         Parameters
         ----------
         variable
-            May be a label, a 1-based variable/parameter index, a derivative
-            monomial tuple, or a TPSA with exactly one non-constant monomial. Passing
-            a monomial requests a higher or mixed derivative.
+            May be a label, a 1-based variable/parameter index, a monomial tuple,
+            or a TPSA with exactly one non-constant coefficient equal to one. See
+            :meth:`_resolve_single_monomial` for accepted inputs.
         """
         result = self.descriptor.zero()
 
-        if isinstance(variable, tuple):
-            monomial = self._derivative_monomial(variable)
-            monomial_arr = ffi().new('unsigned char[]', monomial)
-            lib().mad_tpsa_derivm(self._ptr, result._ptr, len(monomial), monomial_arr)
-            return result
-
-        if isinstance(variable, Tpsa):
-            self._check_compatible(variable)
-            variable_index = lib().madng_tpsa_tpsa_variable_index(variable._ptr)
-            if variable_index >= 1:
-                lib().mad_tpsa_deriv(self._ptr, result._ptr, variable_index)
-                return result
-
-            monomial = self._derivative_monomial(variable)
-            monomial_arr = ffi().new('unsigned char[]', monomial)
-            lib().mad_tpsa_derivm(self._ptr, result._ptr, len(monomial), monomial_arr)
-            return result
-
-        variable_index = self._variable_index(variable)
-        lib().mad_tpsa_deriv(self._ptr, result._ptr, variable_index)
+        monomial = self._resolve_single_monomial(variable)
+        monomial_arr = ffi().new('unsigned char[]', monomial)
+        lib().mad_tpsa_derivm(self._ptr, result._ptr, len(monomial), monomial_arr)
         return result
 
     def poisson_bracket(self, other: Tpsa, num_pairs: Literal['all'] | int = 'all') -> Tpsa:
@@ -355,70 +302,11 @@ class Tpsa:
             self._raise_mad_error()
         return first, second
 
-    @staticmethod
-    def _raise_mad_error() -> None:
-        location = ffi().string(lib().madng_tpsa_last_error_location()).decode()
-        message = ffi().string(lib().madng_tpsa_last_error_message()).decode()
-        if location:
-            raise TpsaError(f'GTPSA error in {location}: {message}')
-        raise TpsaError(f'GTPSA error: {message}')
-
     def _check_compatible(self, other: Tpsa) -> None:
         """Raise if ``other`` cannot be combined with this series."""
         if not lib().madng_tpsa_check_tpsa_compatibility(self._ptr, other._ptr):
             message = 'Incompatible TPSA descriptors'
             raise ValueError(message)
-
-    def _check_monomial(self, monomial: list[int]) -> None:
-        if not self.descriptor.is_valid_monomial(monomial):
-            message = 'Monomial is not valid for this descriptor'
-            raise ValueError(message)
-        if sum(monomial) > self.order:
-            message = f'Monomial order exceeds TPSA order {self.order}'
-            raise ValueError(message)
-
-    def _variable_index(self, variable: int | str | Tpsa) -> int:
-        """Return a validated 1-based variable/parameter index."""
-        if isinstance(variable, Tpsa):
-            self._check_compatible(variable)
-            variable_index = lib().madng_tpsa_tpsa_variable_index(variable._ptr)
-            if variable_index < 0:
-                message = 'Variable must be a TPSA identity variable with coefficient 1'
-                raise ValueError(message)
-            return variable_index
-
-        variable_index = self.descriptor.variable_index(variable)
-        monomial_length = self.descriptor.monomial_length
-        if not 1 <= variable_index <= monomial_length:
-            raise ValueError(f'Variable index must be in [1, monomial_length={monomial_length}]')
-        return variable_index
-
-    def _derivative_monomial(self, variable: tuple[int, ...] | Tpsa) -> list[int]:
-        """Return a validated higher-derivative monomial."""
-        if isinstance(variable, Tpsa):
-            self._check_compatible(variable)
-            monomial_arr = ffi().new('unsigned char[]', self.descriptor.monomial_length)
-            if not lib().madng_tpsa_tpsa_single_monomial(
-                variable._ptr,
-                self.descriptor.monomial_length,
-                monomial_arr,
-            ):
-                message = 'Derivative TPSA must contain exactly one non-constant monomial'
-                raise ValueError(message)
-            monomial = list(monomial_arr)
-        else:
-            monomial = [int(order) for order in variable]
-
-        monomial_length = self.descriptor.monomial_length
-        if len(monomial) != monomial_length:
-            raise ValueError(f'Derivative monomial must have length {monomial_length}')
-        if sum(monomial) == 0:
-            message = 'Derivative monomial must have positive order'
-            raise ValueError(message)
-        if not self.descriptor.is_valid_monomial(monomial):
-            message = 'Derivative monomial is not valid for this descriptor'
-            raise ValueError(message)
-        return monomial
 
     def equals(self, other: Tpsa, tol: SupportsFloat = 0.0) -> bool:
         """Return whether this series and ``other`` have matching coefficients."""

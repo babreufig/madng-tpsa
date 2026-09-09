@@ -10,16 +10,16 @@ import scipy.special
 
 from . import _cffi
 from ._cffi import ffi, lib
-from .errors import TpsaError
+from ._tpsa_base import _TpsaBase
 from .tpsa import Tpsa
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping, Sequence
+    from collections.abc import Iterable
 
     from .descriptor import Descriptor
 
 
-class ComplexTpsa:
+class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
     """A complex truncated power series on a :class:`Descriptor`."""
 
     __slots__ = ('_descriptor', '_ptr', '__weakref__')
@@ -32,6 +32,45 @@ class ComplexTpsa:
         self._descriptor = descriptor
         self._ptr = lib().mad_ctpsa_newd(descriptor.ptr, order)
         descriptor._complex_tpsas[int(ffi().cast('uintptr_t', self._ptr))] = self
+
+    @classmethod
+    def from_ptr(
+        cls, ptr: Any, descriptor: Descriptor | None = None, *, owns: bool = False
+    ) -> ComplexTpsa:
+        """Return the interned ``ComplexTpsa`` for a raw C pointer.
+
+        A descriptor is inferred from an owned, newly allocated pointer. Unknown
+        pointers require ``owns=True`` to prevent multiple Python owners for one
+        C allocation.
+        """
+        key = int(ffi().cast('uintptr_t', ptr))
+
+        if descriptor is not None:
+            existing = descriptor._complex_tpsas.get(key)
+            if existing is not None:
+                return existing
+            if not owns:
+                message = (
+                    'No live ComplexTpsa found for the given pointer. '
+                    'Pass owns=True to wrap a freshly allocated pointer.'
+                )
+                raise ValueError(message)
+        elif not owns:
+            message = 'A descriptor must be provided if owns is False.'
+            raise ValueError(message)
+        else:
+            from .descriptor import Descriptor
+
+            descriptor = Descriptor.from_ptr(lib().mad_ctpsa_desc(ptr))
+            existing = descriptor._complex_tpsas.get(key)
+            if existing is not None:
+                return existing
+
+        t = cls.__new__(cls)
+        t._descriptor = descriptor
+        t._ptr = ptr
+        descriptor._complex_tpsas[key] = t
+        return t
 
     @classmethod
     def from_tpsa(cls, real: Tpsa, imag: Tpsa | None = None) -> ComplexTpsa:
@@ -114,25 +153,6 @@ class ComplexTpsa:
             coefficient.imag,
         )
 
-    def __getitem__(self, monomial: Iterable[int]) -> complex:
-        return self.get(monomial)
-
-    def __setitem__(self, monomial: Iterable[int], value: SupportsFloat | SupportsComplex) -> None:
-        self.set(monomial, value)
-
-    def coefficient(
-        self,
-        monomials: Sequence[int] | Sequence[Sequence[int]] | np.ndarray,
-    ) -> complex | np.ndarray:
-        """Return coefficients for one monomial or a batch of monomials."""
-        monomial_arr = np.asarray(monomials, dtype=int)
-        if monomial_arr.ndim == 1:
-            return self.get(tuple(monomial_arr))
-        if monomial_arr.ndim == 2:
-            return np.array([self.get(tuple(row)) for row in monomial_arr])
-        message = 'Monomials must be one monomial or a two-dimensional batch'
-        raise ValueError(message)
-
     def monomial_coeffs(self, tol: float = 1e-14) -> dict[tuple[int, ...], complex]:
         """Return stored coefficients with magnitude greater than ``tol``."""
         monomial_len = self.descriptor.monomial_length
@@ -150,18 +170,6 @@ class ComplexTpsa:
             if abs(value) > tol:
                 coefficients[tuple(monomial_arr)] = value
         return coefficients
-
-    def to_dict(self, tol: float = 1e-14) -> dict[tuple[int, ...], complex]:
-        """Return this series as a monomial-to-coefficient dictionary."""
-        return self.monomial_coeffs(tol=tol)
-
-    def from_dict(
-        self, coefficients: Mapping[tuple[int, ...], SupportsFloat | SupportsComplex]
-    ) -> None:
-        """Replace coefficients from a monomial-to-coefficient dictionary."""
-        self.clear()
-        for monomial, coefficient in coefficients.items():
-            self.set(monomial, coefficient)
 
     def is_zero(self) -> bool:
         """Return whether this series has no non-zero coefficients."""
@@ -211,20 +219,33 @@ class ComplexTpsa:
         return result
 
     def integrate(self, variable: int | str | Tpsa) -> ComplexTpsa:
-        """Return the formal integral with respect to ``variable``."""
+        """Return the formal integral with respect to ``variable``.
+
+        Parameters
+        ----------
+        variable
+            May be a label, a 1-based variable/parameter index, or a TPSA identity
+            variable with exactly one first-order monomial of coefficient 1. See
+            :meth:`_resolve_single_monomial` for accepted inputs.
+        """
         result = self.descriptor.complex_zero()
-        lib().mad_ctpsa_integ(self._ptr, result._ptr, self._variable_index(variable))
+        lib().mad_ctpsa_integ(self._ptr, result._ptr, self._integration_index(variable))
         return result
 
     def derivative(self, variable: int | str | tuple[int, ...] | Tpsa) -> ComplexTpsa:
-        """Return a partial derivative with respect to ``variable``."""
+        """Return a partial derivative with respect to ``variable``.
+
+        Parameters
+        ----------
+        variable
+            May be a label, a 1-based variable/parameter index, a monomial tuple,
+            or a TPSA with exactly one non-constant coefficient equal to one. See
+            :meth:`_resolve_single_monomial` for accepted inputs.
+        """
         result = self.descriptor.complex_zero()
-        if isinstance(variable, tuple):
-            monomial = self._derivative_monomial(variable)
-            monomial_arr = ffi().new('unsigned char[]', monomial)
-            lib().mad_ctpsa_derivm(self._ptr, result._ptr, len(monomial), monomial_arr)
-            return result
-        lib().mad_ctpsa_deriv(self._ptr, result._ptr, self._variable_index(variable))
+        monomial = self._resolve_single_monomial(variable)
+        monomial_arr = ffi().new('unsigned char[]', monomial)
+        lib().mad_ctpsa_derivm(self._ptr, result._ptr, len(monomial), monomial_arr)
         return result
 
     def poisson_bracket(
@@ -428,7 +449,7 @@ class ComplexTpsa:
         return lib().mad_ctpsa_nrm(self._ptr)
 
     def unit(self) -> ComplexTpsa:
-        """Return this series normalised by its complex constant part."""
+        """Return this series normalised by the magnitude of its constant part."""
         if self.const_part == 0:
             message = 'Cannot normalise a CTPSA with zero constant part'
             raise ZeroDivisionError(message)
@@ -522,14 +543,6 @@ class ComplexTpsa:
             return _UFUNC_DISPATCH[ufunc](*inputs)
         return NotImplemented
 
-    @staticmethod
-    def _raise_mad_error() -> None:
-        location = ffi().string(lib().madng_tpsa_last_error_location()).decode()
-        message = ffi().string(lib().madng_tpsa_last_error_message()).decode()
-        if location:
-            raise TpsaError(f'GTPSA error in {location}: {message}')
-        raise TpsaError(f'GTPSA error: {message}')
-
     def _protected_binary(
         self,
         left: ComplexTpsa | Tpsa,
@@ -551,41 +564,6 @@ class ComplexTpsa:
         if not self._compatible(other):
             message = 'Incompatible TPSA descriptors'
             raise ValueError(message)
-
-    def _check_monomial(self, monomial: list[int]) -> None:
-        if not self.descriptor.is_valid_monomial(monomial):
-            message = 'Monomial is not valid for this descriptor'
-            raise ValueError(message)
-        if sum(monomial) > self.order:
-            raise ValueError(f'Monomial order exceeds TPSA order {self.order}')
-
-    def _variable_index(self, variable: int | str | Tpsa) -> int:
-        if isinstance(variable, Tpsa):
-            self._check_compatible(variable)
-            index = lib().madng_tpsa_tpsa_variable_index(variable._ptr)
-            if index < 0:
-                message = 'Variable must be a TPSA identity variable with coefficient 1'
-                raise ValueError(message)
-            return index
-        index = self.descriptor.variable_index(variable)
-        if not 1 <= index <= self.descriptor.monomial_length:
-            raise ValueError(
-                f'Variable index must be in [1, monomial_length={self.descriptor.monomial_length}]'
-            )
-        return index
-
-    def _derivative_monomial(self, variable: tuple[int, ...]) -> list[int]:
-        monomial = [int(order) for order in variable]
-        if len(monomial) != self.descriptor.monomial_length:
-            message = f'Derivative monomial must have length {self.descriptor.monomial_length}'
-            raise ValueError(message)
-        if sum(monomial) == 0:
-            message = 'Derivative monomial must have positive order'
-            raise ValueError(message)
-        if not self.descriptor.is_valid_monomial(monomial):
-            message = 'Derivative monomial is not valid for this descriptor'
-            raise ValueError(message)
-        return monomial
 
 
 _UFUNC_DISPATCH = {

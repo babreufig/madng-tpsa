@@ -20,51 +20,12 @@ int madng_tpsa_check_tpsa_compatibility(const tpsa_t *left, const tpsa_t *right)
 }
 
 /*
- * Return the 1-based variable/parameter index represented by an identity TPSA.
+ * Copy the monomial orders from a TPSA containing exactly one unit monomial.
  *
- * A valid identity TPSA has zero constant part and exactly one first-order
- * monomial with coefficient 1. Return -1 when the series is not an identity
- * variable.
- */
-int madng_tpsa_tpsa_variable_index(const tpsa_t *series) {
-    if (!series || series->coef[0] != 0 || series->lo != 1 || series->hi != 1) {
-        return -1;
-    }
-
-    int variable_index = 0;
-    TPSA_SCAN(series) {
-        const idx_t coefficient_index = i;
-        const num_t coefficient = series->coef[coefficient_index];
-        if (coefficient == 0) {
-            continue;
-        }
-        if (coefficient != 1 || variable_index != 0) {
-            return -1;
-        }
-
-        const ord_t *monomial_orders = series->d->To[coefficient_index];
-        for (int monomial_index = 0; monomial_index < series->d->nn; ++monomial_index) {
-            const ord_t variable_order = monomial_orders[monomial_index];
-            if (variable_order == 0) {
-                continue;
-            }
-            if (variable_order != 1 || variable_index != 0) {
-                return -1;
-            }
-            variable_index = monomial_index + 1;
-        }
-    }
-
-    return variable_index > 0 ? variable_index : -1;
-}
-
-/*
- * Copy the monomial orders from a TPSA that contains exactly one non-constant
- * monomial.
- *
- * Return non-zero on success. Return 0 if the series has a constant part, has no
- * non-constant monomial, has more than one non-constant monomial, or the output
- * buffer length does not match the descriptor.
+ * Return the underlying coefficient index on success. Return -1 if the series
+ * has a constant part, has no non-constant monomial, has more than one
+ * non-constant monomial, its coefficient is not one, or the output buffer length
+ * does not match the descriptor.
  */
 int madng_tpsa_tpsa_single_monomial(
     const tpsa_t *series,
@@ -72,24 +33,24 @@ int madng_tpsa_tpsa_single_monomial(
     ord_t monomial_orders[]
 ) {
     if (!series || !monomial_orders || monomial_len != series->d->nn || series->coef[0] != 0) {
-        return 0;
+        return -1;
     }
 
-    int found = 0;
+    int coefficient_index = -1;
     TPSA_SCAN(series) {
         if (series->coef[i] == 0) {
             continue;
         }
-        if (found) {
-            return 0;
+        if (series->coef[i] != 1 || coefficient_index >= 0) {
+            return -1;
         }
 
         const ord_t *source_orders = series->d->To[i];
         for (int monomial_index = 0; monomial_index < monomial_len; ++monomial_index) {
             monomial_orders[monomial_index] = source_orders[monomial_index];
         }
-        found = 1;
+        coefficient_index = i;
     }
 
-    return found;
+    return coefficient_index;
 }

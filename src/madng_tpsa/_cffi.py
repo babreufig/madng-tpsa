@@ -220,7 +220,6 @@ CDEF = """
     const char* madng_tpsa_last_error_message(void);
 
     int madng_tpsa_check_tpsa_compatibility(const void* left, const void* right);
-    int madng_tpsa_tpsa_variable_index(const void* series);
     int madng_tpsa_tpsa_single_monomial(
         const void* series,
         int monomial_length,

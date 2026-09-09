@@ -269,8 +269,7 @@ are not upstream MAD-NG functions.
 | Function | Description |
 | --- | --- |
 | `int madng_tpsa_check_tpsa_compatibility(const tpsa_t *left, const tpsa_t *right)` | Return non-zero when two TPSA objects are compatible according to MAD-NG's descriptor compatibility rule. |
-| `int madng_tpsa_tpsa_variable_index(const tpsa_t *series)` | Return the 1-based variable/parameter index represented by an identity TPSA. Return `-1` if the TPSA is not an identity variable with exactly one first-order monomial of coefficient `1`. |
-| `int madng_tpsa_tpsa_single_monomial(const tpsa_t *series, int monomial_length, ord_t monomial_orders[])` | Copy the monomial orders from a TPSA that contains exactly one non-constant monomial. Return non-zero on success, or `0` if the series has a constant part, no non-constant monomial, more than one non-constant monomial, or an incompatible output length. |
+| `int madng_tpsa_tpsa_single_monomial(const tpsa_t *series, int monomial_length, ord_t monomial_orders[])` | Copy the monomial orders from a TPSA containing exactly one non-constant coefficient equal to `1`. Return its underlying coefficient index on success, or `-1` if the series has a constant part, no non-constant monomial, multiple non-constant monomials, a non-unit coefficient, or an incompatible output length. |
 
 madng_tpsa uses these helpers to validate inputs in Python before calling MAD-NG
 functions that would otherwise terminate through `ensure(...)`.

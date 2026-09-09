@@ -370,7 +370,7 @@ class Descriptor:
                 raise KeyError(parameter) from exc
         return int(parameter)
 
-    def variable_index(self, variable: int | str) -> int:
+    def var_or_param_index(self, variable: int | str) -> int:
         """Return the 1-based combined variable/parameter index for ``variable``."""
         if isinstance(variable, str):
             if variable in self.var_labels:
@@ -378,7 +378,13 @@ class Descriptor:
             if variable in self.param_labels:
                 return self.num_vars + self.param_labels.index(variable) + 1
             raise KeyError(variable)
-        return int(variable)
+
+        index = int(variable)
+        if index <= 0 or index > self.num_vars + self.num_params:
+            message = 'Variable index out of range'
+            raise ValueError(message)
+
+        return index
 
     def var(self, index: int | str, value: SupportsFloat = 0.0, order: int | None = None) -> Tpsa:
         """Create identity variable ``index`` on this descriptor.

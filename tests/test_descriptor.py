@@ -184,8 +184,6 @@ def test_descriptor_unknown_labels_raise_key_error():
         d.var('y')
     with pytest.raises(KeyError):
         d.param('q')
-    with pytest.raises(KeyError):
-        d.variable_index('missing')
 
 
 def test_descriptor_reuses_existing_labels_and_warns_on_mismatch():

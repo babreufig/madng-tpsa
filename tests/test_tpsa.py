@@ -1,12 +1,14 @@
 """Tests for TPSA series."""
 
 import gc
+import math
 import weakref
 
 import numpy as np
 import pytest
 
 import madng_tpsa
+from madng_tpsa._cffi import lib
 
 
 def test_var_is_an_identity_seed():
@@ -362,6 +364,16 @@ def test_from_ptr_returns_same_object():
     assert t2 is t1
 
 
+def test_from_ptr_infers_descriptor_for_a_new_owned_pointer():
+    d = madng_tpsa.Descriptor(2, 3)
+    ptr = lib().mad_tpsa_newd(d.ptr, d.order)
+
+    t = madng_tpsa.Tpsa.from_ptr(ptr, owns=True)
+
+    assert t.descriptor is d
+    assert t.ptr == ptr
+
+
 def test_from_ptr_raises_for_unknown_pointer():
     d = madng_tpsa.Descriptor(2, 3)
     t1 = d.var(1)
@@ -390,3 +402,45 @@ def test_from_ptr_does_not_double_free():
     gc.collect()
 
     assert t1_ref() is None
+
+
+def test_coerce_operand_returns_compatible_tpsa_unchanged():
+    d = madng_tpsa.Descriptor(1, 2)
+    t = d.var(1)
+    other = d.constant(2)
+
+    assert t._coerce_operand(other) is other
+
+
+@pytest.mark.parametrize(
+    ('method_name', 'expected'),
+    [
+        ('sincos', lambda x: (math.sin(x), math.cos(x))),
+        ('sincosq', lambda x: (math.sin(math.sqrt(x)) / math.sqrt(x), math.cos(math.sqrt(x)))),
+        (
+            'sincosmq',
+            lambda x: (
+                (math.sin(math.sqrt(x)) / math.sqrt(x) - 1) / x,
+                (math.cos(math.sqrt(x)) - 1) / x,
+            ),
+        ),
+        ('sincosh', lambda x: (math.sinh(x), math.cosh(x))),
+        ('sincoshq', lambda x: (math.sinh(math.sqrt(x)) / math.sqrt(x), math.cosh(math.sqrt(x)))),
+        (
+            'sincoshmq',
+            lambda x: (
+                (math.sinh(math.sqrt(x)) / math.sqrt(x) - 1) / x,
+                (math.cosh(math.sqrt(x)) - 1) / x,
+            ),
+        ),
+    ],
+)
+def test_two_output_unary_operations(method_name, expected):
+    value = 0.25
+    t = madng_tpsa.Descriptor(1, 2).constant(value)
+
+    first, second = getattr(t, method_name)()
+
+    expected_first, expected_second = expected(value)
+    assert first.const_part == pytest.approx(expected_first)
+    assert second.const_part == pytest.approx(expected_second)
