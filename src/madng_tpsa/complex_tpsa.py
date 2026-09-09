@@ -33,6 +33,18 @@ class ComplexTpsa:
         self._ptr = lib().mad_ctpsa_newd(descriptor.ptr, order)
         descriptor._complex_tpsas[int(ffi().cast('uintptr_t', self._ptr))] = self
 
+    @classmethod
+    def from_tpsa(cls, real: Tpsa, imag: Tpsa | None = None) -> ComplexTpsa:
+        """Promote real and optional imaginary TPSAs to a complex TPSA."""
+        if imag is None:
+            imag = real.descriptor.zero(order=real.order)
+        else:
+            real._check_compatible(imag)
+
+        result = cls(real.descriptor, order=real.order)
+        lib().mad_ctpsa_cplx(real.ptr, imag.ptr, result.ptr)
+        return result
+
     def __del__(self) -> None:
         if getattr(self, '_ptr', None) is not None and _cffi._lib is not None:
             _cffi._lib.mad_ctpsa_del(self._ptr)

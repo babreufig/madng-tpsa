@@ -40,6 +40,23 @@ def test_complex_coefficients_and_copy_are_independent():
     np.testing.assert_allclose(t.coefficient([(0, 0), (1, 1)]), [9j, -3 + 4j])
 
 
+def test_from_tpsa_promotes_real_tpsas():
+    d = madng_tpsa.Descriptor(1, 2)
+    real = d.var(1, 1.0)
+    imag = d.var(1, 2.0)
+
+    promoted = madng_tpsa.ComplexTpsa.from_tpsa(real)
+    combined = madng_tpsa.ComplexTpsa.from_tpsa(real, imag)
+
+    assert promoted.real().equals(real)
+    assert promoted.imag().is_zero()
+    assert combined.real().equals(real)
+    assert combined.imag().equals(imag)
+
+    with pytest.raises(ValueError, match='Incompatible TPSA descriptors'):
+        madng_tpsa.ComplexTpsa.from_tpsa(real, madng_tpsa.Descriptor(2, 2).var(1))
+
+
 def test_complex_arithmetic_and_mixed_real_operands():
     d = madng_tpsa.Descriptor(1, 3)
     x = d.var(1, 1.0)

@@ -71,6 +71,7 @@ CDEF = """
     int mad_ctpsa_isnul(const void* t);
     int mad_ctpsa_isval(const void* t);
     void mad_ctpsa_copy(const void* t, void* r);
+    void mad_ctpsa_cplx(const void* re, const void* im, void* r);
     void mad_ctpsa_real(const void* t, void* r);
     void mad_ctpsa_imag(const void* t, void* r);
     int mad_ctpsa_equ(const void* a, const void* b, double tol);
