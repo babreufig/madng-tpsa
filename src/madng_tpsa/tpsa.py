@@ -176,6 +176,30 @@ class Tpsa(_TpsaBase[float, SupportsFloat]):
 
         return coeffs
 
+    def homogeneous(self, order: int) -> Tpsa:
+        """Return only the homogeneous part of exactly `order`."""
+        if not isinstance(order, int) or not 0 <= order <= self.order:
+            raise ValueError(f'order must satisfy 0 <= order <= {self.order}')
+        result = self.descriptor.zero(order=self.order)
+        lib.mad_tpsa_getord(self._ptr, result._ptr, order)
+        return result
+
+    def truncate(self, order: int) -> Tpsa:
+        """Return the series truncated through `order`."""
+        if not isinstance(order, int) or not 0 <= order <= self.order:
+            raise ValueError(f'order must satisfy 0 <= order <= {self.order}')
+        result = self.descriptor.zero(order=self.order)
+        lib.mad_tpsa_cutord(self._ptr, result._ptr, order + 1)
+        return result
+
+    def clear_order(self, order: int) -> Tpsa:
+        """Return a copy with homogeneous order `order` removed."""
+        if not isinstance(order, int) or not 0 <= order <= self.order:
+            raise ValueError(f'order must satisfy 0 <= order <= {self.order}')
+        result = self.copy()
+        lib.mad_tpsa_clrord(result._ptr, order)
+        return result
+
     def is_zero(self) -> bool:
         """Return whether this series has no non-zero coefficients."""
         return bool(lib.mad_tpsa_isnul(self._ptr))

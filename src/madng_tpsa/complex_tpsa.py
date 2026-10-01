@@ -191,6 +191,30 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
                 coefficients[tuple(monomial_arr)] = value
         return coefficients
 
+    def homogeneous(self, order: int) -> ComplexTpsa:
+        """Return only the homogeneous part of exactly `order`."""
+        if not isinstance(order, int) or not 0 <= order <= self.order:
+            raise ValueError(f'order must satisfy 0 <= order <= {self.order}')
+        result = self.descriptor.complex_zero(order=self.order)
+        lib.mad_ctpsa_getord(self._ptr, result._ptr, order)
+        return result
+
+    def truncate(self, order: int) -> ComplexTpsa:
+        """Return the series truncated through `order`."""
+        if not isinstance(order, int) or not 0 <= order <= self.order:
+            raise ValueError(f'order must satisfy 0 <= order <= {self.order}')
+        result = self.descriptor.complex_zero(order=self.order)
+        lib.mad_ctpsa_cutord(self._ptr, result._ptr, order + 1)
+        return result
+
+    def clear_order(self, order: int) -> ComplexTpsa:
+        """Return a copy with homogeneous order `order` removed."""
+        if not isinstance(order, int) or not 0 <= order <= self.order:
+            raise ValueError(f'order must satisfy 0 <= order <= {self.order}')
+        result = self.copy()
+        lib.mad_ctpsa_clrord(result._ptr, order)
+        return result
+
     def is_zero(self) -> bool:
         """Return whether this series has no non-zero coefficients."""
         return bool(lib.mad_ctpsa_isnul(self._ptr))
