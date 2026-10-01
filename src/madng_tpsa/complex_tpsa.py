@@ -193,28 +193,21 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
 
     def homogeneous(self, order: int) -> ComplexTpsa:
         """Return only the homogeneous part of exactly `order`."""
-        if not isinstance(order, int) or not 0 <= order <= self.order:
-            raise ValueError(f'order must satisfy 0 <= order <= {self.order}')
+        order = self._validate_order(order, self.order)
         result = self.descriptor.complex_zero(order=order)
         lib.mad_ctpsa_getord(self._ptr, result._ptr, order)
         return result
 
     def truncate(self, order: int) -> ComplexTpsa:
         """Return the ComplexTpsa truncated through `order`."""
-        if not isinstance(order, Integral) or isinstance(order, bool):
-            message = 'order must be an integer'
-            raise TypeError(message)
-        order = int(order)
-        if not 0 <= order <= self.order:
-            raise ValueError(f'order must satisfy 0 <= order <= {self.order}')
+        order = self._validate_order(order, self.order)
         result = self.descriptor.complex_zero(order=order)
         lib.mad_ctpsa_cutord(self._ptr, result._ptr, order + 1)
         return result
 
     def clear_order(self, order: int) -> ComplexTpsa:
         """Return a copy with homogeneous order `order` removed."""
-        if not isinstance(order, int) or not 0 <= order <= self.order:
-            raise ValueError(f'order must satisfy 0 <= order <= {self.order}')
+        order = self._validate_order(order, self.order)
         result = self.copy()
         lib.mad_ctpsa_clrord(result._ptr, order)
         return result

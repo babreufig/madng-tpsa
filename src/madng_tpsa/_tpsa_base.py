@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import operator
 from abc import ABC, abstractmethod
+from numbers import Integral
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 import numpy as np
@@ -119,6 +120,17 @@ class _TpsaBase(ABC, Generic[_Coefficient, _InputCoefficient]):
         if location:
             raise TpsaError(f'GTPSA error in {location}: {message}')
         raise TpsaError(f'GTPSA error: {message}')
+
+    @staticmethod
+    def _validate_order(order: object, max_order: int) -> int:
+        if not isinstance(order, Integral) or isinstance(order, bool):
+            message = 'order must be an integer'
+            raise TypeError(message)
+        order = int(order)
+        if not 0 <= order <= max_order:
+            message = f'order must satisfy 0 <= order <= {max_order}'
+            raise ValueError(message)
+        return order
 
     def coefficient(
         self,
