@@ -24,6 +24,8 @@ from typing import (
 )
 from weakref import WeakValueDictionary
 
+import numpy as np
+
 from . import _cffi
 from ._cffi import ffi, lib
 from .complex_tpsa import ComplexTpsa
@@ -315,6 +317,14 @@ class Descriptor:
     def complex_zero(self, order: int | None = None) -> ComplexTpsa:
         """Create a zero complex TPSA series on this descriptor."""
         return ComplexTpsa(self, order=order)
+
+    def from_monomial_coeffs(self, coeffs, *, order=None):
+        """Construct a TPSA from {monomial: coefficient}."""
+        is_complex = any(np.iscomplexobj(c) for c in coeffs.values())
+        result = self.complex_zero(order=order) if is_complex else self.zero(order=order)
+        for monomial, coefficient in coeffs.items():
+            result.set(monomial, coefficient)
+        return result
 
     @overload
     def var(
