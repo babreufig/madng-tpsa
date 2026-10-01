@@ -195,15 +195,19 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
         """Return only the homogeneous part of exactly `order`."""
         if not isinstance(order, int) or not 0 <= order <= self.order:
             raise ValueError(f'order must satisfy 0 <= order <= {self.order}')
-        result = self.descriptor.complex_zero(order=self.order)
+        result = self.descriptor.complex_zero(order=order)
         lib.mad_ctpsa_getord(self._ptr, result._ptr, order)
         return result
 
     def truncate(self, order: int) -> ComplexTpsa:
-        """Return the series truncated through `order`."""
-        if not isinstance(order, int) or not 0 <= order <= self.order:
+        """Return the ComplexTpsa truncated through `order`."""
+        if not isinstance(order, Integral) or isinstance(order, bool):
+            message = 'order must be an integer'
+            raise TypeError(message)
+        order = int(order)
+        if not 0 <= order <= self.order:
             raise ValueError(f'order must satisfy 0 <= order <= {self.order}')
-        result = self.descriptor.complex_zero(order=self.order)
+        result = self.descriptor.complex_zero(order=order)
         lib.mad_ctpsa_cutord(self._ptr, result._ptr, order + 1)
         return result
 

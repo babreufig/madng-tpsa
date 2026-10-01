@@ -48,6 +48,9 @@ CDEF = """
     void mad_tpsa_setm(void* t, int n, const unsigned char* m, double a, double b);
     void mad_tpsa_copy(const void* t, void* r);
     int mad_tpsa_cycle(void* t, int i, int n, unsigned char* m, double* v);
+    void mad_tpsa_getord(const void* t, void* r, unsigned char ord);
+    void mad_tpsa_cutord(const void* t, void* r, int ord);
+    void mad_tpsa_clrord(void* t, unsigned char ord);
 
     void mad_tpsa_add(const void* a, const void* b, void* c);
     void mad_tpsa_sub(const void* a, const void* b, void* c);
@@ -92,6 +95,9 @@ CDEF = """
     int mad_ctpsa_cycle(
         const void* t, int i, int n, unsigned char* m, double _Complex* v
     );
+    void mad_ctpsa_getord(const void* t, void* r, unsigned char ord);
+    void mad_ctpsa_cutord(const void* t, void* r, int ord);
+    void mad_ctpsa_clrord(void* t, unsigned char ord);
 
     void mad_ctpsa_add(const void* a, const void* b, void* c);
     void mad_ctpsa_sub(const void* a, const void* b, void* c);
