@@ -246,7 +246,7 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
 
     def copy(self) -> ComplexTpsa:
         """Return an independent copy of this series."""
-        result = self.descriptor.complex_zero()
+        result = self.descriptor.complex_zero(order=self.order)
         lib.mad_ctpsa_copy(self._ptr, result._ptr)
         return result
 

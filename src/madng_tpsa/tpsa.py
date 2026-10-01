@@ -235,7 +235,7 @@ class Tpsa(_TpsaBase[float, SupportsFloat]):
 
     def copy(self) -> Tpsa:
         """Return an independent copy of this series."""
-        result = self.descriptor.zero()
+        result = self.descriptor.zero(order=self.order)
         lib.mad_tpsa_copy(self._ptr, result._ptr)
         return result
 
