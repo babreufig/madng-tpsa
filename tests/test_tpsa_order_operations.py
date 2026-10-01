@@ -51,7 +51,6 @@ def test_homogeneous_extracts_constant_part(polynomial):
 
 def test_homogeneous_empty_order_is_zero(polynomial):
     tpsa, _ = polynomial
-    result = tpsa.homogeneous(5) if False else tpsa.homogeneous(0)
     # A separate descriptor is easier for testing an empty valid order.
     descriptor = madng_tpsa.Descriptor(2, 4)
     empty = (
