@@ -634,6 +634,16 @@ class TpsaMap:
         return max_nonzero_order(self.coords)
 
     @property
+    def num_vars(self) -> int:
+        """Return the number of descriptor variables."""
+        return self.descriptor.num_vars
+
+    @property
+    def num_params(self) -> int:
+        """Return the number of descriptor parameters."""
+        return self.descriptor.num_params
+
+    @property
     def is_complex(self) -> bool:
         """Return whether the map contains complex TPSAs."""
         return any(isinstance(value, ComplexTpsa) for value in self.coords)
@@ -699,6 +709,10 @@ class TpsaMap:
 
     evaluate_array = evaluate
 
+    def param_jacobian(self) -> np.ndarray:
+        """Return first-order derivatives with respect to descriptor parameters."""
+        return np.asarray([value.param_grad() for value in self.coords])
+
     def jacobian(
         self,
         coordinates: Sequence[Scalar] | None = None,
@@ -714,6 +728,17 @@ class TpsaMap:
             derivatives = tuple(value.derivative(variable) for value in self.coords)
             columns.append(evaluate(derivatives, coordinates, parameters=parameters))
         return np.column_stack(columns)
+
+    def sensitivity(self, coord: int | str, parameter: int | str):
+        """Return the first-order sensitivity of one output to one parameter."""
+        if isinstance(parameter, str):
+            try:
+                parameter = self.descriptor.param_labels.index(parameter)
+            except ValueError as exc:
+                raise KeyError(parameter) from exc
+        elif not 0 <= parameter < self.num_params:
+            raise IndexError(parameter)
+        return self[coord].param_grad()[parameter]
 
     def homogeneous(self, order: int) -> TpsaMap:
         """Return the homogeneous part of the requested order."""
