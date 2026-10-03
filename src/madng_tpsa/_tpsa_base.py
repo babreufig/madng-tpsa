@@ -162,12 +162,11 @@ class _TpsaBase(ABC, Generic[_Coefficient, _InputCoefficient]):
         """Raise if ``monomial`` is invalid for this descriptor or series order."""
         if len(monomial) != self.descriptor.monomial_length:
             raise ValueError(f'Monomial must have length {self.descriptor.monomial_length}')
-        if not self.descriptor.is_valid_monomial(monomial):
-            message = 'Monomial is not valid for this descriptor'
-            raise ValueError(message)
-
         if sum(monomial) > self.order:
             message = f'Monomial order exceeds TPSA order {self.order}'
+            raise ValueError(message)
+        if not self.descriptor.is_valid_monomial(monomial):
+            message = 'Monomial is not valid for this descriptor'
             raise ValueError(message)
 
     def _resolve_single_monomial(
