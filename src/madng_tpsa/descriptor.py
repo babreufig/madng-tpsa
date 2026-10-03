@@ -282,6 +282,9 @@ class Descriptor:
 
     def is_valid_monomial(self, monomial: Sequence[int]) -> bool:
         """Whether ``monomial`` is representable (querying beyond order is illegal in the C API)."""
+        monomial = tuple(int(value) for value in monomial)
+        if len(monomial) != self.monomial_length:
+            return False
         arr = ffi.new('unsigned char[]', monomial)
         return bool(lib.mad_desc_isvalidm(self._ptr, len(monomial), arr))
 
