@@ -737,3 +737,20 @@ def test_set_const_part_complex_map(descriptor):
     )
     map_.set_const_part([1 + 2j, 3 - 4j])
     np.testing.assert_allclose(map_.const_part, [1 + 2j, 3 - 4j])
+
+
+def test_set_const_part_rejects_complex_for_real_map(descriptor):
+    map_ = TpsaMap.identity(descriptor)
+    with pytest.raises(TypeError, match='complex'):
+        map_.set_const_part([1j, 0.0])
+
+
+def test_map_coefficient_rejects_wrong_monomial_length_with_parameters():
+    d = Descriptor(variables=['x', 'y'], order=3, params=['k'])
+    map_ = TpsaMap.identity(d)
+
+    with pytest.raises(ValueError, match='length 3'):
+        map_.coefficient('x', (1, 0))
+
+    with pytest.raises(ValueError, match='length 3'):
+        map_.set_coefficient('x', (1, 0), 2.0)

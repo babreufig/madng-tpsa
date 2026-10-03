@@ -226,10 +226,13 @@ class ComplexTpsa(_TpsaBase[complex, SupportsFloat | SupportsComplex]):
 
     def grad(self) -> list[complex]:
         """First-order coefficients for the descriptor variables."""
-        return [
-            self.get([int(index == variable) for index in range(self.descriptor.num_vars)])
-            for variable in range(self.descriptor.num_vars)
-        ]
+        monomial_len = self.descriptor.monomial_length
+        grad = []
+        for var_idx in range(self.descriptor.num_vars):
+            monomial = [0] * monomial_len
+            monomial[var_idx] = 1
+            grad.append(self.get(monomial))
+        return grad
 
     def param_grad(self) -> list[complex]:
         """First-order coefficients for the descriptor parameters."""

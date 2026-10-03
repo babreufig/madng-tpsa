@@ -211,10 +211,10 @@ class Tpsa(_TpsaBase[float, SupportsFloat]):
 
     def grad(self) -> list[float]:
         """First-order coefficients for the descriptor variables."""
-        num_vars = self.descriptor.num_vars
+        monomial_len = self.descriptor.monomial_length
         grad = []
-        for var_idx in range(num_vars):
-            monomial = [0] * num_vars
+        for var_idx in range(self.descriptor.num_vars):
+            monomial = [0] * monomial_len
             monomial[var_idx] = 1
             grad.append(self.get(monomial))
         return grad
