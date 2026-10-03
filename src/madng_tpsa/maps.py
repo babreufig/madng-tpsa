@@ -703,15 +703,26 @@ class TpsaMap:
         """Set a coefficient in one coordinate."""
         self[coord].set(monomial, value)
 
+    def set_const_part(self, values: Sequence[Scalar]) -> None:
+        """Set the constant part of every map component."""
+        values = tuple(values)
+        if len(values) != len(self):
+            message = f'Expected {len(self)} values, got {len(values)}'
+            raise ValueError(message)
+        for component, value in zip(self.coords, values, strict=True):
+            if isinstance(component, Tpsa):
+                if not isinstance(value, SupportsFloat):
+                    message = 'Cannot assign a complex constant to a real TPSA map'
+                    raise TypeError(message)
+                component.set_const_part(value)
+            else:
+                component.set_const_part(value)
+
     def evaluate(self, coordinates, *, parameters=None) -> np.ndarray:
         """Evaluate the map at numerical coordinates."""
         return evaluate(self.coords, coordinates, parameters=parameters)
 
     evaluate_array = evaluate
-
-    def param_jacobian(self) -> np.ndarray:
-        """Return first-order derivatives with respect to descriptor parameters."""
-        return np.asarray([value.param_grad() for value in self.coords])
 
     def jacobian(
         self,
@@ -728,6 +739,36 @@ class TpsaMap:
             derivatives = tuple(value.derivative(variable) for value in self.coords)
             columns.append(evaluate(derivatives, coordinates, parameters=parameters))
         return np.column_stack(columns)
+
+    def param_jacobian(self) -> np.ndarray:
+        """Return first-order derivatives with respect to descriptor parameters."""
+        return np.asarray([value.param_grad() for value in self.coords])
+
+    def set_jacobian(self, jacobian) -> None:
+        """Set the first-order coefficients with respect to descriptor variables."""
+        jacobian = np.asarray(jacobian)
+        expected_shape = (len(self), self.num_vars)
+        if jacobian.shape != expected_shape:
+            message = f'Jacobian must have shape {expected_shape}, got {jacobian.shape}'
+            raise ValueError(message)
+        for component, row in zip(self.coords, jacobian, strict=True):
+            for variable, value in enumerate(row):
+                monomial = [0] * self.descriptor.monomial_length
+                monomial[variable] = 1
+                component.set(monomial, value)
+
+    def set_param_jacobian(self, jacobian) -> None:
+        """Set first-order coefficients with respect to descriptor parameters."""
+        jacobian = np.asarray(jacobian)
+        expected_shape = (len(self), self.num_params)
+        if jacobian.shape != expected_shape:
+            message = f'Parameter Jacobian must have shape {expected_shape}, got {jacobian.shape}'
+            raise ValueError(message)
+        for component, row in zip(self.coords, jacobian, strict=True):
+            for parameter, value in enumerate(row):
+                monomial = [0] * self.descriptor.monomial_length
+                monomial[self.num_vars + parameter] = 1
+                component.set(monomial, value)
 
     def sensitivity(self, coord: int | str, parameter: int | str):
         """Return the first-order sensitivity of one output to one parameter."""

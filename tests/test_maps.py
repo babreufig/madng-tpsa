@@ -719,3 +719,21 @@ def test_map_addition_requires_same_length(descriptor):
 def test_map_norm_is_sum_of_component_norms(nonlinear_map):
     expected = sum(component.norm() for component in nonlinear_map)
     assert nonlinear_map.norm() == pytest.approx(expected)
+
+
+def test_set_const_part_real_map(descriptor):
+    map_ = TpsaMap.identity(descriptor)
+    map_.set_const_part([1.0, -2.0])
+    np.testing.assert_allclose(map_.const_part, [1.0, -2.0])
+
+
+def test_set_const_part_complex_map(descriptor):
+    x, y = descriptor.vars()
+    map_ = TpsaMap(
+        [
+            ComplexTpsa.from_tpsa(x),
+            ComplexTpsa.from_tpsa(y),
+        ]
+    )
+    map_.set_const_part([1 + 2j, 3 - 4j])
+    np.testing.assert_allclose(map_.const_part, [1 + 2j, 3 - 4j])
