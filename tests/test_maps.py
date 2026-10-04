@@ -1,3 +1,5 @@
+"""Tests for TpsaMap public Python API."""
+
 import numpy as np
 import pytest
 
@@ -94,7 +96,7 @@ def test_map_rejects_empty_sequence():
 def test_map_rejects_non_series_component(descriptor):
     x, _ = descriptor.vars()
     with pytest.raises(TypeError, match='Map components must be'):
-        TpsaMap([x, 1.0])  # ty:ignore[invalid-argument-type]
+        TpsaMap([x, 1.0])  # ty:ignore[no-matching-overload]
 
 
 def test_map_rejects_different_descriptors():
@@ -209,6 +211,18 @@ def test_map_repr_contains_coordinate_names(descriptor):
     assert representation.startswith('TpsaMap(')
     assert 'qx=' in representation
     assert 'qy=' in representation
+
+
+def test_map_num_vars_and_num_params():
+    descriptor = Descriptor(
+        variables=['x', 'px'],
+        order=3,
+        params=['k1', 'k2'],
+        param_order=1,
+    )
+    map_ = TpsaMap.identity(descriptor)
+    assert map_.num_vars == 2
+    assert map_.num_params == 2
 
 
 # ---------------------------------------------------------------------------
@@ -509,6 +523,40 @@ def test_partial_inverse_requires_one_selection_per_variable(descriptor):
         partial_inverse(descriptor.vars(), [1])
 
 
+def test_partial_inverse_all_rows_matches_inverse(descriptor):
+    x, y = descriptor.vars()
+    map_ = TpsaMap([x + y**2, y + x**3])
+    assert_map_equal(
+        map_.partial_inverse([1, 1]),
+        map_.inverse(),
+    )
+
+
+@pytest.mark.parametrize(
+    ('select', 'error'),
+    [
+        ([2, 0], ValueError),
+        ([-1, 1], ValueError),
+        ([0.5, 1], TypeError),
+    ],
+)
+def test_partial_inverse_rejects_non_boolean_selection(
+    descriptor,
+    select,
+    error,
+):
+    map_ = TpsaMap.identity(descriptor)
+    with pytest.raises(error):
+        map_.partial_inverse(select)
+
+
+def test_partial_inverse_accepts_boolean_and_binary_integer_selection(descriptor):
+    map_ = TpsaMap.identity(descriptor)
+    map_.partial_inverse([True, False])
+    map_.partial_inverse([1, 0])
+    map_.partial_inverse([np.int64(1), np.int64(0)])
+
+
 # ---------------------------------------------------------------------------
 # Hamiltonian fields and Lie brackets
 # ---------------------------------------------------------------------------
@@ -537,7 +585,6 @@ def test_vector_to_field_complex(descriptor):
 def test_vector_to_field_validation():
     with pytest.raises(TypeError, match='generator must be'):
         vector_to_field(1.0)  # ty:ignore[invalid-argument-type]
-
     descriptor = Descriptor(3, 3)
     with pytest.raises(ValueError, match='even number of variables'):
         vector_to_field(descriptor.var(1) ** 2)
@@ -547,6 +594,15 @@ def test_field_to_vector_requires_full_field(descriptor):
     q, _ = descriptor.vars()
     with pytest.raises(ValueError, match='Field must have 2 components'):
         field_to_vector([q])
+
+
+def test_field_to_vector_cannot_recover_generator_constant():
+    descriptor = Descriptor(variables=['q', 'p'], order=4)
+    q, p = descriptor.vars()
+    generator = 7 + q**3 / 3 + q * p**2
+    recovered = field_to_vector(vector_to_field(generator))
+    assert recovered.const_part == 0
+    assert_series_equal(recovered, generator - 7)
 
 
 def test_lie_bracket_with_itself_is_zero(descriptor):
@@ -637,6 +693,50 @@ def test_map_log_methods_match_functions(descriptor):
     map_ = TpsaMap.identity(descriptor)
     assert_map_equal(map_.log_poisson().coords, log_poisson(map_.coords))
     assert_series_equal(map_.log_generator(), log_generator(map_.coords))
+
+
+def test_exp_poisson_scalar_generator_has_madng_sign_convention():
+    descriptor = Descriptor(variables=['q', 'p'], order=4)
+    q, p = descriptor.vars()
+    generator = q**3 / 3
+    map_ = TpsaMap.identity(descriptor).exp_poisson(generator)
+    assert_series_equal(map_.q, q)
+    assert_series_equal(map_.p, p - q**2)
+
+
+def test_exp_poisson_log_generator_round_trip(descriptor):
+    q, _ = descriptor.vars()
+    generator = q**3 / 3
+    map_ = TpsaMap.identity(descriptor).exp_poisson(generator)
+    assert_series_equal(map_.log_generator(), generator)
+
+
+def test_exp_poisson_generates_canonical_map(descriptor):
+    q, p = descriptor.vars()
+    generator = q**3 / 3 + q * p**2
+    map_ = TpsaMap.identity(descriptor).exp_poisson(generator)
+    q_out, p_out = map_
+    bracket = q_out.poisson_bracket(p_out)
+    assert bracket.const_part == pytest.approx(1.0)
+
+    # A map truncated at order N can only be checked for
+    # symplecticity through order N - 1: the order-N part
+    # of the Poisson bracket also depends on order-(N+1)
+    # terms of the map.
+    defect = (bracket - 1).truncate(map_.order - 1)
+    assert defect.is_zero()
+    if not (bracket - 1).is_zero():
+        # Assert that the highest nonzero order of the defect matches the map's order
+        assert (bracket - 1).max_nonzero_order == map_.order
+
+
+def test_complex_exp_poisson_log_generator_round_trip(descriptor):
+    q, _ = descriptor.vars()
+    generator = (1 + 2j) * ComplexTpsa.from_tpsa(q**3 / 3)
+    map_ = TpsaMap.identity(descriptor).exp_poisson(generator)
+    recovered = map_.log_generator()
+    assert isinstance(recovered, ComplexTpsa)
+    assert_series_equal(recovered, generator)
 
 
 # ---------------------------------------------------------------------------
@@ -786,18 +886,6 @@ def test_map_coefficient_rejects_wrong_monomial_length_with_parameters():
         map_.coefficient('x', (1, 0))
     with pytest.raises(ValueError, match='length 3'):
         map_.set_coefficient('x', (1, 0), 2.0)
-
-
-def test_map_num_vars_and_num_params():
-    descriptor = Descriptor(
-        variables=['x', 'px'],
-        order=3,
-        params=['k1', 'k2'],
-        param_order=1,
-    )
-    map_ = TpsaMap.identity(descriptor)
-    assert map_.num_vars == 2
-    assert map_.num_params == 2
 
 
 def test_map_setters_support_partial_output_maps():

@@ -1,3 +1,5 @@
+"""Tests the protected C wrapper layer for map operations directly."""
+
 import pytest
 
 import madng_tpsa

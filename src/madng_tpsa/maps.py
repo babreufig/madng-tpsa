@@ -8,9 +8,9 @@ provides a small Python container around such a sequence.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from numbers import Number
-from typing import Any, SupportsComplex, SupportsFloat, TypeAlias
+from collections.abc import Iterator, Mapping, Sequence
+from numbers import Integral, Number
+from typing import Any, Generic, SupportsComplex, SupportsFloat, TypeAlias, TypeVar, cast, overload
 
 import numpy as np
 
@@ -21,6 +21,8 @@ from .tpsa import Tpsa
 
 Series: TypeAlias = Tpsa | ComplexTpsa
 Scalar: TypeAlias = SupportsFloat | SupportsComplex
+SeriesT = TypeVar('SeriesT', Tpsa, ComplexTpsa)
+SelectionValue: TypeAlias = bool | int | np.integer[Any]
 
 
 def _raise_mad_error() -> None:
@@ -47,6 +49,12 @@ def _series_tuple(values: Sequence[Series] | TpsaMap) -> tuple[Series, ...]:
 
 def _is_complex(values: Sequence[Series]) -> bool:
     return any(isinstance(value, ComplexTpsa) for value in values)
+
+
+def _as_complex(value: Series) -> ComplexTpsa:
+    if isinstance(value, ComplexTpsa):
+        return value.copy()
+    return ComplexTpsa.from_tpsa(value)
 
 
 def _promote_complex(values: Sequence[Series]) -> tuple[ComplexTpsa, ...]:
@@ -113,6 +121,29 @@ def _protected_call(family: str, function: Any, *, complex_: bool, args: Any) ->
     status = wrapper(function, *args)
     if status:
         _raise_mad_error()
+
+
+def _normalise_selection(
+    select: Sequence[SelectionValue],
+    expected_length: int,
+) -> list[int]:
+    if len(select) != expected_length:
+        message = f'select must contain {expected_length} entries, got {len(select)}'
+        raise ValueError(message)
+    result = []
+    for value in select:
+        if isinstance(value, (bool, np.bool_)):
+            result.append(int(value))
+            continue
+        if not isinstance(value, Integral):
+            message = 'select entries must be booleans or integers 0 or 1'
+            raise TypeError(message)
+        value = int(value)
+        if value not in (0, 1):
+            message = 'integer select entries must be 0 or 1'
+            raise ValueError(message)
+        result.append(value)
+    return result
 
 
 def compose(
@@ -192,7 +223,7 @@ def inverse(values: Sequence[Series] | TpsaMap) -> tuple[Series, ...]:
 
 def partial_inverse(
     values: Sequence[Series] | TpsaMap,
-    select: Sequence[bool | int],
+    select: Sequence[SelectionValue],
 ) -> tuple[Series, ...]:
     """Return a partial inverse for selected variable rows of a full map.
 
@@ -208,9 +239,6 @@ def partial_inverse(
             f'got {len(series)}'
         )
         raise ValueError(message)
-    if len(select) != descriptor.num_vars:
-        message = f'select must contain {descriptor.num_vars} entries, got {len(select)}'
-        raise ValueError(message)
 
     full_input = _complete_substitution(series)
     coordinate_output = _zeros_like(series)
@@ -218,8 +246,9 @@ def partial_inverse(
         *coordinate_output,
         *_parameter_identities(descriptor, complex_=_is_complex(series)),
     )
-    full_select = [int(bool(value)) for value in select]
+    full_select = _normalise_selection(select, descriptor.num_vars)
     full_select.extend([0] * descriptor.num_params)
+
     select_array = ffi.new('int[]', full_select)
     complex_ = _is_complex(series)
 
@@ -558,7 +587,7 @@ def norm(values: Sequence[Series] | TpsaMap) -> float:
     return float(sum(value.norm() for value in series))
 
 
-class TpsaMap:
+class TpsaMap(Generic[SeriesT]):
     """A vector-valued TPSA map sharing one :class:`Descriptor`.
 
     ``TpsaMap`` owns only its component TPSA objects. It deliberately contains
@@ -566,6 +595,24 @@ class TpsaMap:
     """
 
     __slots__ = ('coords', 'coord_names')
+
+    coords: list[SeriesT]
+    coord_names: tuple[str, ...]
+
+    @overload
+    def __init__(
+        self: TpsaMap[Tpsa],
+        coords: Sequence[Tpsa] | Mapping[str, Tpsa],
+        *,
+        coord_names: Sequence[str] | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: TpsaMap[ComplexTpsa],
+        coords: Sequence[Series] | Mapping[str, Series],
+        *,
+        coord_names: Sequence[str] | None = None,
+    ) -> None: ...
 
     def __init__(
         self,
@@ -581,6 +628,7 @@ class TpsaMap:
         series = _series_tuple(coords)
         if _is_complex(series):
             series = _promote_complex(series)
+        self.coords = cast('list[SeriesT]', list(series))
 
         descriptor = series[0].descriptor
         if len(series) > descriptor.num_vars:
@@ -589,7 +637,6 @@ class TpsaMap:
                 f'{descriptor.num_vars} variables'
             )
             raise ValueError(message)
-
         if coord_names is None:
             coord_names = descriptor.var_labels[: len(series)]
         coord_names = tuple(coord_names)
@@ -599,8 +646,6 @@ class TpsaMap:
         if len(set(coord_names)) != len(coord_names):
             message = 'coord_names must be unique'
             raise ValueError(message)
-
-        self.coords = list(series)
         self.coord_names = coord_names
 
     @classmethod
@@ -608,11 +653,15 @@ class TpsaMap:
         cls,
         descriptor,
         *,
-        values: Sequence[Scalar] | None = None,
+        values: Sequence[SupportsFloat] | None = None,
         coord_names: Sequence[str] | None = None,
-    ) -> TpsaMap:
+    ) -> TpsaMap[Tpsa]:
         """Construct the identity TPSA map."""
-        return cls(descriptor.vars(values), coord_names=coord_names)
+        # Explicit real Tpsa components
+        return TpsaMap(
+            descriptor.vars(values),
+            coord_names=coord_names,
+        )
 
     @classmethod
     def from_monomial_coeffs(
@@ -630,6 +679,13 @@ class TpsaMap:
         else:
             coords = [descriptor.from_monomial_coeffs(component) for component in coefficients]
         return cls(coords, coord_names=coord_names)
+
+    def to_complex(self) -> TpsaMap[ComplexTpsa]:
+        """Return this map represented by complex TPSAs."""
+        return TpsaMap(
+            [_as_complex(value) for value in self.coords],
+            coord_names=self.coord_names,
+        )
 
     @property
     def descriptor(self):
@@ -670,10 +726,10 @@ class TpsaMap:
     def __len__(self) -> int:
         return len(self.coords)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[SeriesT]:
         return iter(self.coords)
 
-    def __getitem__(self, key: int | str) -> Series:
+    def __getitem__(self, key: int | str) -> SeriesT:
         if isinstance(key, str):
             try:
                 key = self.coord_names.index(key)
@@ -681,7 +737,7 @@ class TpsaMap:
                 raise KeyError(key) from exc
         return self.coords[key]
 
-    def __getattr__(self, name: str) -> Series:
+    def __getattr__(self, name: str) -> SeriesT:
         if name in self.coord_names:
             return self[name]
         raise AttributeError(name)
@@ -692,12 +748,13 @@ class TpsaMap:
         )
         return f'TpsaMap({components})'
 
-    def copy(self) -> TpsaMap:
+    def copy(self) -> TpsaMap[SeriesT]:
         """Return an independent copy of the map."""
-        return TpsaMap(
+        result = TpsaMap(
             [value.copy() for value in self.coords],
             coord_names=self.coord_names,
         )
+        return cast('TpsaMap[SeriesT]', result)
 
     def monomial_coeffs(self, coord: int | str | None = None, tol: float = 1e-14):
         """Return monomial coefficients for one or all coordinates."""
@@ -794,28 +851,31 @@ class TpsaMap:
             raise IndexError(parameter)
         return self[coord].param_grad()[parameter]
 
-    def homogeneous(self, order: int) -> TpsaMap:
+    def homogeneous(self, order: int) -> TpsaMap[SeriesT]:
         """Return the homogeneous part of the requested order."""
-        return TpsaMap(
+        result = TpsaMap(
             [value.homogeneous(order) for value in self.coords],
             coord_names=self.coord_names,
         )
+        return cast('TpsaMap[SeriesT]', result)
 
-    def truncate(self, order: int) -> TpsaMap:
+    def truncate(self, order: int) -> TpsaMap[SeriesT]:
         """Return the map truncated through the requested order."""
-        return TpsaMap(
+        result = TpsaMap(
             [value.truncate(order) for value in self.coords],
             coord_names=self.coord_names,
         )
+        return cast('TpsaMap[SeriesT]', result)
 
-    def clear_order(self, order: int) -> TpsaMap:
+    def clear_order(self, order: int) -> TpsaMap[SeriesT]:
         """Return a copy with one homogeneous order removed."""
-        return TpsaMap(
+        result = TpsaMap(
             [value.clear_order(order) for value in self.coords],
             coord_names=self.coord_names,
         )
+        return cast('TpsaMap[SeriesT]', result)
 
-    def compose(self, other: TpsaMap) -> TpsaMap:
+    def compose(self, other: TpsaMap) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
         """Return the composition ``self ∘ other``."""
         if not isinstance(other, TpsaMap):
             return NotImplemented
@@ -826,7 +886,7 @@ class TpsaMap:
 
     __matmul__ = compose
 
-    def inverse(self) -> TpsaMap:
+    def inverse(self) -> TpsaMap[SeriesT]:
         """Return the formal inverse of the map."""
         if np.any(self.const_part != 0):
             err_mess = (
@@ -834,12 +894,13 @@ class TpsaMap:
                 'translate/recentre the map before inversion'
             )
             raise ValueError(err_mess)
-        return TpsaMap(
+        result = TpsaMap(
             inverse(self.coords),
             coord_names=self.coord_names,
         )
+        return cast('TpsaMap[SeriesT]', result)
 
-    def partial_inverse(self, select: Sequence[bool | int]) -> TpsaMap:
+    def partial_inverse(self, select: Sequence[SelectionValue]) -> TpsaMap[SeriesT]:
         """Return a partial inverse of the map."""
         if np.any(self.const_part != 0):
             err_mess = (
@@ -847,19 +908,20 @@ class TpsaMap:
                 'translate/recentre the map before inversion'
             )
             raise ValueError(err_mess)
-        return TpsaMap(
+        result = TpsaMap(
             partial_inverse(self.coords, select),
             coord_names=self.coord_names,
         )
+        return cast('TpsaMap[SeriesT]', result)
 
-    def translate(self, offsets: Sequence[Scalar]) -> TpsaMap:
+    def translate(self, offsets: Sequence[Scalar]) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
         """Translate the map arguments."""
         return TpsaMap(
             translate(self.coords, offsets),
             coord_names=self.coord_names,
         )
 
-    def lie_bracket(self, other: TpsaMap) -> TpsaMap:
+    def lie_bracket(self, other: TpsaMap) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
         """Return the Lie bracket with another vector field."""
         if not isinstance(other, TpsaMap):
             return NotImplemented
@@ -868,7 +930,27 @@ class TpsaMap:
             coord_names=self.coord_names,
         )
 
-    def exp_poisson(self, generator: Series | TpsaMap) -> TpsaMap:
+    @overload
+    def exp_poisson(self: TpsaMap[Tpsa], generator: Tpsa) -> TpsaMap[Tpsa]: ...
+    @overload
+    def exp_poisson(self: TpsaMap[Tpsa], generator: ComplexTpsa) -> TpsaMap[ComplexTpsa]: ...
+    @overload
+    def exp_poisson(self: TpsaMap[ComplexTpsa], generator: Series) -> TpsaMap[ComplexTpsa]: ...
+    @overload
+    def exp_poisson(self: TpsaMap[Tpsa], generator: TpsaMap[Tpsa]) -> TpsaMap[Tpsa]: ...
+    @overload
+    def exp_poisson(
+        self: TpsaMap[Tpsa], generator: TpsaMap[ComplexTpsa]
+    ) -> TpsaMap[ComplexTpsa]: ...
+    @overload
+    def exp_poisson(
+        self: TpsaMap[ComplexTpsa], generator: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]
+    ) -> TpsaMap[ComplexTpsa]: ...
+
+    def exp_poisson(
+        self,
+        generator: Series | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa],
+    ) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
         """Return the action of the Lie exponential generated by ``generator``.
 
         In mathematical notation, ``map.exp_poisson(f)`` returns
@@ -882,7 +964,9 @@ class TpsaMap:
             coord_names=self.coord_names,
         )
 
-    def log_poisson(self, initial_guess: TpsaMap | None = None) -> TpsaMap:
+    def log_poisson(
+        self, initial_guess: TpsaMap | None = None
+    ) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
         """Return the logarithmic Hamiltonian vector field."""
         initial_coords = None if initial_guess is None else initial_guess.coords
         return TpsaMap(
@@ -903,13 +987,14 @@ class TpsaMap:
         """Return the MAD-NG map norm."""
         return norm(self.coords)
 
-    def __neg__(self) -> TpsaMap:
-        return TpsaMap(
+    def __neg__(self) -> TpsaMap[SeriesT]:
+        result = TpsaMap(
             [-value for value in self.coords],
             coord_names=self.coord_names,
         )
+        return cast('TpsaMap[SeriesT]', result)
 
-    def __add__(self, other):
+    def __add__(self, other) -> TpsaMap:
         if not isinstance(other, TpsaMap):
             return NotImplemented
         left, right = _coerce_pair(self.coords, other.coords)
@@ -921,7 +1006,7 @@ class TpsaMap:
             coord_names=self.coord_names,
         )
 
-    def __sub__(self, other):
+    def __sub__(self, other) -> TpsaMap:
         if not isinstance(other, TpsaMap):
             return NotImplemented
         return self + (-other)

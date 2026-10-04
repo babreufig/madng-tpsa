@@ -1,8 +1,10 @@
 """madng_tpsa: Python bindings to the GTPSA engine of MAD-NG.
 
-Truncated Power Series Algebra: build a descriptor (how many variables, to which
-order, plus optional parameters), seed identity series on it and perform
-algebraic operations. The coefficients are the derivatives.
+Truncated Power Series Algebra: build a descriptor defining the variables,
+truncation order and optional parameters, seed identity series on it, and
+perform algebraic and map operations. Stored coefficients are Taylor
+coefficients; first-order coefficients coincide with derivatives at the
+expansion point.
 
     import madng_tpsa
     d = madng_tpsa.Descriptor(2, 3)          # 2 variables, order 3
