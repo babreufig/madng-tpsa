@@ -233,6 +233,23 @@ def test_map_coefficient_and_set_coefficient(nonlinear_map):
     assert nonlinear_map['x'][(0, 3)] == pytest.approx(2.5)
 
 
+def test_map_coefficient_and_set_coefficient_with_parameters():
+    descriptor = Descriptor(
+        variables=['x', 'px'],
+        order=3,
+        params=['k'],
+        param_order=1,
+    )
+    map_ = TpsaMap.identity(
+        descriptor,
+        coord_names=('x', 'px'),
+    )
+    map_.set_coefficient('x', (2, 0, 0), 0.75)
+    map_.set_coefficient('x', (0, 0, 1), -0.25)
+    assert map_.coefficient('x', (2, 0, 0)) == pytest.approx(0.75)
+    assert map_.coefficient('x', (0, 0, 1)) == pytest.approx(-0.25)
+
+
 # ---------------------------------------------------------------------------
 # Composition
 # ---------------------------------------------------------------------------
@@ -721,10 +738,16 @@ def test_map_norm_is_sum_of_component_norms(nonlinear_map):
     assert nonlinear_map.norm() == pytest.approx(expected)
 
 
+# ---------------------------------------------------------------------------
+# Const part
+# ---------------------------------------------------------------------------
+
+
 def test_set_const_part_real_map(descriptor):
     map_ = TpsaMap.identity(descriptor)
-    map_.set_const_part([1.0, -2.0])
-    np.testing.assert_allclose(map_.const_part, [1.0, -2.0])
+    map_.set_const_part([1.5, -2.5])
+    np.testing.assert_allclose(map_.const_part, [1.5, -2.5])
+    np.testing.assert_allclose(map_.jacobian(), np.eye(2))
 
 
 def test_set_const_part_complex_map(descriptor):
@@ -745,12 +768,232 @@ def test_set_const_part_rejects_complex_for_real_map(descriptor):
         map_.set_const_part([1j, 0.0])
 
 
+def test_map_set_const_part_rejects_wrong_length(descriptor):
+    map_ = TpsaMap.identity(descriptor)
+    with pytest.raises(ValueError, match='Expected 2 values'):
+        map_.set_const_part([1.0])
+
+
+# ---------------------------------------------------------------------------
+# Coefficient access and manipulation
+# ---------------------------------------------------------------------------
+
+
 def test_map_coefficient_rejects_wrong_monomial_length_with_parameters():
     d = Descriptor(variables=['x', 'y'], order=3, params=['k'])
     map_ = TpsaMap.identity(d)
-
     with pytest.raises(ValueError, match='length 3'):
         map_.coefficient('x', (1, 0))
-
     with pytest.raises(ValueError, match='length 3'):
         map_.set_coefficient('x', (1, 0), 2.0)
+
+
+def test_map_num_vars_and_num_params():
+    descriptor = Descriptor(
+        variables=['x', 'px'],
+        order=3,
+        params=['k1', 'k2'],
+        param_order=1,
+    )
+    map_ = TpsaMap.identity(descriptor)
+    assert map_.num_vars == 2
+    assert map_.num_params == 2
+
+
+def test_map_setters_support_partial_output_maps():
+    descriptor = Descriptor(
+        variables=['x', 'px', 'y'],
+        order=2,
+        params=['k'],
+    )
+    x, px, _ = descriptor.vars()
+    map_ = TpsaMap(
+        [x, px],
+        coord_names=('x', 'px'),
+    )
+    map_.set_const_part([1.0, 2.0])
+    map_.set_jacobian(
+        [
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+        ]
+    )
+    map_.set_param_jacobian(
+        [
+            [7.0],
+            [8.0],
+        ]
+    )
+    np.testing.assert_allclose(map_.const_part, [1.0, 2.0])
+    np.testing.assert_allclose(
+        map_.jacobian(),
+        [
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+        ],
+    )
+    np.testing.assert_allclose(
+        map_.param_jacobian(),
+        [
+            [7.0],
+            [8.0],
+        ],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Jacobian and sensitivity
+# ---------------------------------------------------------------------------
+
+
+def test_map_set_jacobian_round_trip():
+    descriptor = Descriptor(variables=['x', 'px'], order=3)
+    map_ = TpsaMap.identity(descriptor)
+    jacobian = np.array(
+        [
+            [1.2, 0.3],
+            [-0.4, 0.8],
+        ]
+    )
+    map_.set_jacobian(jacobian)
+    np.testing.assert_allclose(map_.jacobian(), jacobian)
+
+
+def test_map_set_jacobian_preserves_const_part():
+    descriptor = Descriptor(variables=['x', 'px'], order=3)
+    map_ = TpsaMap.identity(descriptor, values=[1.0, -2.0])
+    jacobian = np.array(
+        [
+            [2.0, 3.0],
+            [4.0, 5.0],
+        ]
+    )
+    map_.set_jacobian(jacobian)
+    np.testing.assert_allclose(map_.const_part, [1.0, -2.0])
+    np.testing.assert_allclose(map_.jacobian(), jacobian)
+
+
+def test_map_set_jacobian_rejects_wrong_shape():
+    descriptor = Descriptor(variables=['x', 'px'], order=3)
+    map_ = TpsaMap.identity(descriptor)
+    with pytest.raises(ValueError, match=r'Jacobian must have shape \(2, 2\)'):
+        map_.set_jacobian(np.zeros((2, 3)))
+
+
+def test_map_set_jacobian_preserves_parameter_coefficients():
+    descriptor = Descriptor(
+        variables=['x', 'px'],
+        order=2,
+        params=['k1', 'k2'],
+        param_order=1,
+    )
+    map_ = TpsaMap.identity(descriptor)
+    map_.set_coefficient('x', (0, 0, 1, 0), 0.25)
+    map_.set_coefficient('px', (0, 0, 0, 1), -0.75)
+    before = map_.param_jacobian().copy()
+    jacobian = np.array(
+        [
+            [1.2, 0.3],
+            [-0.4, 0.8],
+        ]
+    )
+    map_.set_jacobian(jacobian)
+    np.testing.assert_allclose(map_.jacobian(), jacobian)
+    np.testing.assert_allclose(map_.param_jacobian(), before)
+
+
+def test_map_set_param_jacobian_round_trip():
+    descriptor = Descriptor(
+        variables=['x', 'px'],
+        order=2,
+        params=['k1', 'k2'],
+        param_order=1,
+    )
+    map_ = TpsaMap.identity(descriptor)
+    param_jacobian = np.array(
+        [
+            [0.1, 0.2],
+            [-0.3, 0.4],
+        ]
+    )
+    map_.set_param_jacobian(param_jacobian)
+    np.testing.assert_allclose(
+        map_.param_jacobian(),
+        param_jacobian,
+    )
+
+
+def test_map_set_param_jacobian_preserves_variable_jacobian():
+    descriptor = Descriptor(
+        variables=['x', 'px'],
+        order=2,
+        params=['k1', 'k2'],
+        param_order=1,
+    )
+    map_ = TpsaMap.identity(descriptor)
+    jacobian_before = map_.jacobian().copy()
+    map_.set_param_jacobian(
+        [
+            [0.1, 0.2],
+            [-0.3, 0.4],
+        ]
+    )
+    np.testing.assert_allclose(
+        map_.jacobian(),
+        jacobian_before,
+    )
+
+
+def test_map_set_param_jacobian_rejects_wrong_shape():
+    descriptor = Descriptor(
+        variables=['x', 'px'],
+        order=2,
+        params=['k1', 'k2'],
+    )
+    map_ = TpsaMap.identity(descriptor)
+    with pytest.raises(ValueError, match=r'Parameter Jacobian must have shape \(2, 2\)'):
+        map_.set_param_jacobian(np.zeros((2, 3)))
+
+
+def test_map_param_jacobian_and_sensitivity():
+    descriptor = Descriptor(
+        variables=['x', 'px'],
+        order=2,
+        params=['k1', 'k2'],
+        param_order=1,
+    )
+    x, px = descriptor.vars()
+    k1, k2 = descriptor.params()
+    map_ = TpsaMap(
+        [
+            x + 2 * k1 - 3 * k2,
+            px + 4 * k1 + 5 * k2,
+        ],
+        coord_names=('x', 'px'),
+    )
+    np.testing.assert_allclose(
+        map_.param_jacobian(),
+        [
+            [2.0, -3.0],
+            [4.0, 5.0],
+        ],
+    )
+    assert map_.sensitivity('x', 0) == pytest.approx(2.0)
+    assert map_.sensitivity('x', 1) == pytest.approx(-3.0)
+    assert map_.sensitivity('px', 'k1') == pytest.approx(4.0)
+    assert map_.sensitivity('px', 'k2') == pytest.approx(5.0)
+
+
+def test_map_sensitivity_rejects_unknown_parameter():
+    descriptor = Descriptor(
+        variables=['x', 'px'],
+        order=2,
+        params=['k1', 'k2'],
+    )
+    map_ = TpsaMap.identity(descriptor)
+    with pytest.raises(KeyError):
+        map_.sensitivity('x', 'missing')
+    with pytest.raises(IndexError):
+        map_.sensitivity('x', -1)
+    with pytest.raises(IndexError):
+        map_.sensitivity('x', 2)

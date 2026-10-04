@@ -441,3 +441,85 @@ def test_two_output_unary_operations(method_name, expected):
     expected_first, expected_second = expected(value)
     assert first.const_part == pytest.approx(expected_first)
     assert second.const_part == pytest.approx(expected_second)
+
+
+def test_get_and_set_reject_wrong_monomial_length_with_parameters():
+    descriptor = madng_tpsa.Descriptor(
+        variables=['x', 'px'],
+        order=3,
+        params=['k'],
+    )
+    x = descriptor.var('x')
+    with pytest.raises(ValueError, match='Monomial must have length 3'):
+        x.get((1, 0))
+    with pytest.raises(ValueError, match='Monomial must have length 3'):
+        x.set((1, 0), 1.0)
+
+
+def test_coefficient_rejects_wrong_monomial_length_with_parameters():
+    descriptor = madng_tpsa.Descriptor(
+        variables=['x', 'px'],
+        order=3,
+        params=['k'],
+    )
+    x = descriptor.var('x')
+    with pytest.raises(ValueError, match='Monomial must have length 3'):
+        x.coefficient((1, 0))
+    with pytest.raises(ValueError, match='Monomial must have length 3'):
+        x.coefficient(
+            [
+                (1, 0),
+                (0, 1),
+            ]
+        )
+
+
+def test_complex_get_and_set_reject_wrong_monomial_length_with_parameters():
+    descriptor = madng_tpsa.Descriptor(
+        variables=['x', 'px'],
+        order=3,
+        params=['k'],
+    )
+    x = descriptor.var('x', 0j)
+    with pytest.raises(ValueError, match='Monomial must have length 3'):
+        x.get((1, 0))
+    with pytest.raises(ValueError, match='Monomial must have length 3'):
+        x.set((1, 0), 1 + 2j)
+
+
+def test_grad_uses_full_monomials_with_parameters():
+    descriptor = madng_tpsa.Descriptor(
+        variables=['x', 'px'],
+        order=2,
+        params=['k1', 'k2'],
+        param_order=1,
+    )
+    x, px = descriptor.vars()
+    k1, k2 = descriptor.params()
+    value = 2 * x + 3 * px + 4 * k1 + 5 * k2
+    assert value.grad() == pytest.approx([2.0, 3.0])
+    assert value.param_grad() == pytest.approx([4.0, 5.0])
+
+
+def test_complex_grad_uses_full_monomials_with_parameters():
+    descriptor = madng_tpsa.Descriptor(
+        variables=['x', 'px'],
+        order=2,
+        params=['k'],
+        param_order=1,
+    )
+    x = descriptor.var('x', 0j)
+    px = descriptor.var('px', 0j)
+    k = descriptor.param('k', 0j)
+    value = (2 + 3j) * x + (4 - 5j) * px + (6 + 7j) * k
+    assert value.grad() == pytest.approx(
+        [
+            2 + 3j,
+            4 - 5j,
+        ]
+    )
+    assert value.param_grad() == pytest.approx(
+        [
+            6 + 7j,
+        ]
+    )

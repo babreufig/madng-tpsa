@@ -239,3 +239,15 @@ def test_get_rejects_wrong_monomial_length_with_parameters():
 
     with pytest.raises(ValueError, match='length 3'):
         x.set((1, 0), 1.0)
+
+
+def test_is_valid_monomial_rejects_wrong_length():
+    descriptor = madng_tpsa.Descriptor(
+        variables=['x', 'px'],
+        order=3,
+        params=['k'],
+    )
+
+    assert not descriptor.is_valid_monomial((1, 0))
+    assert not descriptor.is_valid_monomial((1, 0, 0, 0))
+    assert descriptor.is_valid_monomial((1, 0, 0))
