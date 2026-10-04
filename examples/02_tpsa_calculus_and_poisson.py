@@ -19,9 +19,12 @@ print('Hamiltonian:')
 print('H =', hamiltonian.format('code'))
 print()
 
-print('Parameter dependence:')
-print('dH/dk coefficients =', hamiltonian.param_grad())
+print('Parameter derivative:')
+print('dH/dk =', hamiltonian.derivative('k').format('code'))
 print()
+
+print('First-order parameter coefficient at the expansion point:')
+print('param_grad(H) =', hamiltonian.param_grad())
 
 dq = hamiltonian.derivative('q')
 dp = hamiltonian.derivative('p')

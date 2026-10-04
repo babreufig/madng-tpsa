@@ -86,5 +86,8 @@ print('Lie map exp(:f:) applied to the identity:')
 print(lie_map)
 print()
 
+assert lie_map.q == q
+assert lie_map.p == p - k * q**2
+
 print('Recover the logarithmic generator:')
 print(lie_map.log_generator().format('code'))
