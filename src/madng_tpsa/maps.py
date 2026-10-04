@@ -157,7 +157,7 @@ def compose(
 
 
 def inverse(values: Sequence[Series] | TpsaMap) -> tuple[Series, ...]:
-    """Return the inverse of a full variable map.
+    """Return the inverse of a full variable map centered at the origin.
 
     Descriptor parameters are treated as independent parameters and carried
     through the inversion unchanged.
@@ -197,7 +197,8 @@ def partial_inverse(
     """Return a partial inverse for selected variable rows of a full map.
 
     ``select`` has one entry per descriptor variable. Parameters are never
-    selected for inversion.
+    selected for inversion. The map has to be a full variable map centered
+    at the origin.
     """
     series = _series_tuple(values)
     descriptor = series[0].descriptor
@@ -472,7 +473,7 @@ def exp_poisson(
 
 def log_poisson(
     values: Sequence[Series] | TpsaMap,
-    reference: Sequence[Series] | TpsaMap | None = None,
+    initial_guess: Sequence[Series] | TpsaMap | None = None,
 ) -> tuple[Series, ...]:
     """Return MAD-NG's vector-field logarithm of a map.
 
@@ -487,19 +488,19 @@ def log_poisson(
         )
         raise ValueError(message)
 
-    reference_series = None
-    if reference is not None:
-        series, reference_series = _coerce_pair(series, reference)
-        if len(reference_series) != descriptor.num_vars:
+    initial_series = None
+    if initial_guess is not None:
+        series, initial_series = _coerce_pair(series, initial_guess)
+        if len(initial_series) != descriptor.num_vars:
             message = (
-                f'Reference field must have {descriptor.num_vars} components, '
-                f'got {len(reference_series)}'
+                f'Field `initial_guess` must have {descriptor.num_vars} components, '
+                f'got {len(initial_series)}'
             )
             raise ValueError(message)
 
     result = _zeros_like(series)
     complex_ = _is_complex(series)
-    reference_ptrs = ffi.NULL if reference_series is None else _pointer_array(reference_series)
+    initial_ptrs = ffi.NULL if initial_series is None else _pointer_array(initial_series)
 
     _protected_call(
         'map_pair',
@@ -508,7 +509,7 @@ def log_poisson(
         args=(
             len(series),
             _pointer_array(series),
-            reference_ptrs,
+            initial_ptrs,
             _pointer_array(result),
         ),
     )
@@ -517,14 +518,26 @@ def log_poisson(
 
 def log_generator(
     values: Sequence[Series] | TpsaMap,
-    reference: Sequence[Series] | TpsaMap | None = None,
+    initial_guess: Sequence[Series] | TpsaMap | None = None,
 ) -> Series:
     """Return the scalar generator corresponding to :func:`log_poisson`.
 
     The minus sign mirrors MAD-NG's high-level ``damap:exppb(f)`` convention,
     which converts a scalar ``f`` to ``-vec2fld(f)``.
     """
-    return -field_to_vector(log_poisson(values, reference))
+    return -field_to_vector(log_poisson(values, initial_guess))
+
+
+def pullback(function: Series, map_: TpsaMap) -> Series:
+    """Return the pullback ``function ∘ map_``."""
+    if function.descriptor is not map_.descriptor:
+        message = 'Function and map must share the same Descriptor'
+        raise ValueError(message)
+    if len(map_) != map_.num_vars:
+        message = f'Pullback requires a full {map_.num_vars}-component map, got {len(map_)}'
+        raise ValueError(message)
+
+    return compose((function,), map_.coords)[0]
 
 
 def map_order(values: Sequence[Series] | TpsaMap) -> int:
@@ -815,6 +828,12 @@ class TpsaMap:
 
     def inverse(self) -> TpsaMap:
         """Return the formal inverse of the map."""
+        if np.any(self.const_part != 0):
+            err_mess = (
+                'Map inversion requires a zero constant part; '
+                'translate/recentre the map before inversion'
+            )
+            raise ValueError(err_mess)
         return TpsaMap(
             inverse(self.coords),
             coord_names=self.coord_names,
@@ -822,6 +841,12 @@ class TpsaMap:
 
     def partial_inverse(self, select: Sequence[bool | int]) -> TpsaMap:
         """Return a partial inverse of the map."""
+        if np.any(self.const_part != 0):
+            err_mess = (
+                'Map inversion requires a zero constant part; '
+                'translate/recentre the map before inversion'
+            )
+            raise ValueError(err_mess)
         return TpsaMap(
             partial_inverse(self.coords, select),
             coord_names=self.coord_names,
@@ -857,18 +882,22 @@ class TpsaMap:
             coord_names=self.coord_names,
         )
 
-    def log_poisson(self, reference: TpsaMap | None = None) -> TpsaMap:
+    def log_poisson(self, initial_guess: TpsaMap | None = None) -> TpsaMap:
         """Return the logarithmic Hamiltonian vector field."""
-        reference_coords = None if reference is None else reference.coords
+        initial_coords = None if initial_guess is None else initial_guess.coords
         return TpsaMap(
-            log_poisson(self.coords, reference_coords),
+            log_poisson(self.coords, initial_coords),
             coord_names=self.coord_names,
         )
 
-    def log_generator(self, reference: TpsaMap | None = None) -> Series:
+    def log_generator(self, initial_guess: TpsaMap | None = None) -> Series:
         """Return the scalar logarithmic generator."""
-        reference_coords = None if reference is None else reference.coords
-        return log_generator(self.coords, reference_coords)
+        initial_coords = None if initial_guess is None else initial_guess.coords
+        return log_generator(self.coords, initial_coords)
+
+    def pullback(self, function: Series) -> Series:
+        """Return ``function ∘ self``."""
+        return pullback(function, self)
 
     def norm(self) -> float:
         """Return the MAD-NG map norm."""
