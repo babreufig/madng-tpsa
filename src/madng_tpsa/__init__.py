@@ -30,6 +30,7 @@ from .maps import (
     log_generator,
     log_poisson,
     partial_inverse,
+    pullback,
     translate,
     vector_to_field,
 )
@@ -59,4 +60,5 @@ __all__ = [
     'partial_inverse',
     'translate',
     'vector_to_field',
+    'pullback',
 ]

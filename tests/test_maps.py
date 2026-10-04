@@ -17,6 +17,7 @@ from madng_tpsa import (
     log_generator,
     log_poisson,
     partial_inverse,
+    pullback,
     translate,
     vector_to_field,
 )
@@ -1085,3 +1086,39 @@ def test_map_sensitivity_rejects_unknown_parameter():
         map_.sensitivity('x', -1)
     with pytest.raises(IndexError):
         map_.sensitivity('x', 2)
+
+
+# ---------------------------------------------------------------------------
+# Pullback
+# ---------------------------------------------------------------------------
+
+
+def test_pullback_substitutes_map_and_preserves_parameters():
+    descriptor = Descriptor(
+        variables=['q', 'p'],
+        order=4,
+        params=['k'],
+        param_order=1,
+    )
+    q, p = descriptor.vars()
+    k = descriptor.param('k')
+    map_ = TpsaMap({'q': q + p, 'p': p - q**2})
+    function = k * q**2 + 3 * p
+    expected = k * (q + p) ** 2 + 3 * (p - q**2)
+    assert_series_equal(map_.pullback(function), expected)
+    assert_series_equal(pullback(function, map_), expected)
+
+
+def test_pullback_requires_same_descriptor(descriptor):
+    q, _ = descriptor.vars()
+    other = Descriptor(2, 4).var(1)
+    map_ = TpsaMap.identity(descriptor)
+    with pytest.raises(ValueError, match='same Descriptor'):
+        map_.pullback(other)
+
+
+def test_pullback_requires_full_map(descriptor):
+    q, _ = descriptor.vars()
+    map_ = TpsaMap([q])
+    with pytest.raises(ValueError, match='full 2-component map'):
+        map_.pullback(q)

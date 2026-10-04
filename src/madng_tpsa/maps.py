@@ -65,8 +65,7 @@ def _promote_complex(values: Sequence[Series]) -> tuple[ComplexTpsa, ...]:
 
 
 def _coerce_pair(
-    left: Sequence[Series] | TpsaMap,
-    right: Sequence[Series] | TpsaMap,
+    left: Sequence[Series] | TpsaMap, right: Sequence[Series] | TpsaMap
 ) -> tuple[tuple[Series, ...], tuple[Series, ...]]:
     left_series = _series_tuple(left)
     right_series = _series_tuple(right)
@@ -123,10 +122,7 @@ def _protected_call(family: str, function: Any, *, complex_: bool, args: Any) ->
         _raise_mad_error()
 
 
-def _normalise_selection(
-    select: Sequence[SelectionValue],
-    expected_length: int,
-) -> list[int]:
+def _normalise_selection(select: Sequence[SelectionValue], expected_length: int) -> list[int]:
     if len(select) != expected_length:
         message = f'select must contain {expected_length} entries, got {len(select)}'
         raise ValueError(message)
@@ -146,9 +142,19 @@ def _normalise_selection(
     return result
 
 
+def _set_series_coefficient(component: Series, monomial, value: Scalar) -> None:
+    if isinstance(component, Tpsa):
+        converted = complex(value)
+        if converted.imag != 0:
+            err_mess = 'Cannot assign a complex coefficient to a real TPSA map'
+            raise TypeError(err_mess)
+        component.set(monomial, converted.real)
+    else:
+        component.set(monomial, value)
+
+
 def compose(
-    left: Sequence[Series] | TpsaMap,
-    right: Sequence[Series] | TpsaMap,
+    left: Sequence[Series] | TpsaMap, right: Sequence[Series] | TpsaMap
 ) -> tuple[Series, ...]:
     """Return ``left ∘ right``, i.e. ``left(right(z))``.
 
@@ -222,8 +228,7 @@ def inverse(values: Sequence[Series] | TpsaMap) -> tuple[Series, ...]:
 
 
 def partial_inverse(
-    values: Sequence[Series] | TpsaMap,
-    select: Sequence[SelectionValue],
+    values: Sequence[Series] | TpsaMap, select: Sequence[SelectionValue]
 ) -> tuple[Series, ...]:
     """Return a partial inverse for selected variable rows of a full map.
 
@@ -322,10 +327,7 @@ def evaluate(
     return np.asarray([float(output_array[ii]) for ii in range(len(series))])
 
 
-def translate(
-    values: Sequence[Series] | TpsaMap,
-    offsets: Sequence[Scalar],
-) -> tuple[Series, ...]:
+def translate(values: Sequence[Series] | TpsaMap, offsets: Sequence[Scalar]) -> tuple[Series, ...]:
     """Return the map after substituting ``z -> z + offsets``.
 
     This is implemented through native composition so descriptor parameters remain
@@ -422,8 +424,7 @@ def field_to_vector(field: Sequence[Series] | TpsaMap) -> Series:
 
 
 def lie_bracket(
-    left: Sequence[Series] | TpsaMap,
-    right: Sequence[Series] | TpsaMap,
+    left: Sequence[Series] | TpsaMap, right: Sequence[Series] | TpsaMap
 ) -> tuple[Series, ...]:
     """Return the Lie bracket of two vector fields."""
     left_series, right_series = _coerce_pair(left, right)
@@ -448,8 +449,7 @@ def lie_bracket(
 
 
 def exp_poisson(
-    values: Sequence[Series] | TpsaMap,
-    generator: Series | Sequence[Series] | TpsaMap,
+    values: Sequence[Series] | TpsaMap, generator: Series | Sequence[Series] | TpsaMap
 ) -> tuple[Series, ...]:
     """Apply MAD-NG's exponential Poisson-bracket map.
 
@@ -501,8 +501,7 @@ def exp_poisson(
 
 
 def log_poisson(
-    values: Sequence[Series] | TpsaMap,
-    initial_guess: Sequence[Series] | TpsaMap | None = None,
+    values: Sequence[Series] | TpsaMap, initial_guess: Sequence[Series] | TpsaMap | None = None
 ) -> tuple[Series, ...]:
     """Return MAD-NG's vector-field logarithm of a map.
 
@@ -546,8 +545,7 @@ def log_poisson(
 
 
 def log_generator(
-    values: Sequence[Series] | TpsaMap,
-    initial_guess: Sequence[Series] | TpsaMap | None = None,
+    values: Sequence[Series] | TpsaMap, initial_guess: Sequence[Series] | TpsaMap | None = None
 ) -> Series:
     """Return the scalar generator corresponding to :func:`log_poisson`.
 
@@ -670,7 +668,7 @@ class TpsaMap(Generic[SeriesT]):
         coefficients: Sequence[Mapping] | Mapping[str, Mapping],
         *,
         coord_names: Sequence[str] | None = None,
-    ) -> TpsaMap:
+    ) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
         """Construct a TPSA map from monomial coefficient dictionaries."""
         if isinstance(coefficients, Mapping):
             if coord_names is None:
@@ -678,7 +676,7 @@ class TpsaMap(Generic[SeriesT]):
             coords = [descriptor.from_monomial_coeffs(coefficients[name]) for name in coord_names]
         else:
             coords = [descriptor.from_monomial_coeffs(component) for component in coefficients]
-        return cls(coords, coord_names=coord_names)
+        return TpsaMap(coords, coord_names=coord_names)
 
     def to_complex(self) -> TpsaMap[ComplexTpsa]:
         """Return this map represented by complex TPSAs."""
@@ -771,7 +769,7 @@ class TpsaMap(Generic[SeriesT]):
 
     def set_coefficient(self, coord: int | str, monomial, value) -> None:
         """Set a coefficient in one coordinate."""
-        self[coord].set(monomial, value)
+        _set_series_coefficient(self[coord], monomial, value)
 
     def set_const_part(self, values: Sequence[Scalar]) -> None:
         """Set the constant part of every map component."""
@@ -825,7 +823,7 @@ class TpsaMap(Generic[SeriesT]):
             for variable, value in enumerate(row):
                 monomial = [0] * self.descriptor.monomial_length
                 monomial[variable] = 1
-                component.set(monomial, value)
+                _set_series_coefficient(component, monomial, value)
 
     def set_param_jacobian(self, jacobian) -> None:
         """Set first-order coefficients with respect to descriptor parameters."""
@@ -838,7 +836,7 @@ class TpsaMap(Generic[SeriesT]):
             for parameter, value in enumerate(row):
                 monomial = [0] * self.descriptor.monomial_length
                 monomial[self.num_vars + parameter] = 1
-                component.set(monomial, value)
+                _set_series_coefficient(component, monomial, value)
 
     def sensitivity(self, coord: int | str, parameter: int | str):
         """Return the first-order sensitivity of one output to one parameter."""
@@ -875,7 +873,18 @@ class TpsaMap(Generic[SeriesT]):
         )
         return cast('TpsaMap[SeriesT]', result)
 
-    def compose(self, other: TpsaMap) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
+    @overload
+    def compose(self: TpsaMap[Tpsa], other: TpsaMap[Tpsa]) -> TpsaMap[Tpsa]: ...
+    @overload
+    def compose(self: TpsaMap[Tpsa], other: TpsaMap[ComplexTpsa]) -> TpsaMap[ComplexTpsa]: ...
+    @overload
+    def compose(
+        self: TpsaMap[ComplexTpsa], other: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]
+    ) -> TpsaMap[ComplexTpsa]: ...
+
+    def compose(
+        self, other: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]
+    ) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
         """Return the composition ``self ∘ other``."""
         if not isinstance(other, TpsaMap):
             return NotImplemented
@@ -921,7 +930,18 @@ class TpsaMap(Generic[SeriesT]):
             coord_names=self.coord_names,
         )
 
-    def lie_bracket(self, other: TpsaMap) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
+    @overload
+    def lie_bracket(self: TpsaMap[Tpsa], other: TpsaMap[Tpsa]) -> TpsaMap[Tpsa]: ...
+    @overload
+    def lie_bracket(self: TpsaMap[Tpsa], other: TpsaMap[ComplexTpsa]) -> TpsaMap[ComplexTpsa]: ...
+    @overload
+    def lie_bracket(
+        self: TpsaMap[ComplexTpsa], other: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]
+    ) -> TpsaMap[ComplexTpsa]: ...
+
+    def lie_bracket(
+        self, other: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]
+    ) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
         """Return the Lie bracket with another vector field."""
         if not isinstance(other, TpsaMap):
             return NotImplemented
@@ -964,6 +984,20 @@ class TpsaMap(Generic[SeriesT]):
             coord_names=self.coord_names,
         )
 
+    @overload
+    def log_poisson(self: TpsaMap[Tpsa], initial_guess: None = None) -> TpsaMap[Tpsa]: ...
+    @overload
+    def log_poisson(self: TpsaMap[Tpsa], initial_guess: TpsaMap[Tpsa]) -> TpsaMap[Tpsa]: ...
+    @overload
+    def log_poisson(
+        self: TpsaMap[Tpsa], initial_guess: TpsaMap[ComplexTpsa]
+    ) -> TpsaMap[ComplexTpsa]: ...
+    @overload
+    def log_poisson(
+        self: TpsaMap[ComplexTpsa],
+        initial_guess: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa] | None = None,
+    ) -> TpsaMap[ComplexTpsa]: ...
+
     def log_poisson(
         self, initial_guess: TpsaMap | None = None
     ) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
@@ -974,10 +1008,29 @@ class TpsaMap(Generic[SeriesT]):
             coord_names=self.coord_names,
         )
 
+    @overload
+    def log_generator(self: TpsaMap[Tpsa], initial_guess: None = None) -> Tpsa: ...
+    @overload
+    def log_generator(self: TpsaMap[Tpsa], initial_guess: TpsaMap[Tpsa]) -> Tpsa: ...
+    @overload
+    def log_generator(self: TpsaMap[Tpsa], initial_guess: TpsaMap[ComplexTpsa]) -> ComplexTpsa: ...
+    @overload
+    def log_generator(
+        self: TpsaMap[ComplexTpsa],
+        initial_guess: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa] | None = None,
+    ) -> ComplexTpsa: ...
+
     def log_generator(self, initial_guess: TpsaMap | None = None) -> Series:
         """Return the scalar logarithmic generator."""
         initial_coords = None if initial_guess is None else initial_guess.coords
         return log_generator(self.coords, initial_coords)
+
+    @overload
+    def pullback(self: TpsaMap[Tpsa], function: Tpsa) -> Tpsa: ...
+    @overload
+    def pullback(self: TpsaMap[Tpsa], function: ComplexTpsa) -> ComplexTpsa: ...
+    @overload
+    def pullback(self: TpsaMap[ComplexTpsa], function: Series) -> ComplexTpsa: ...
 
     def pullback(self, function: Series) -> Series:
         """Return ``function ∘ self``."""
@@ -994,7 +1047,18 @@ class TpsaMap(Generic[SeriesT]):
         )
         return cast('TpsaMap[SeriesT]', result)
 
-    def __add__(self, other) -> TpsaMap:
+    @overload
+    def __add__(self: TpsaMap[Tpsa], other: TpsaMap[Tpsa]) -> TpsaMap[Tpsa]: ...
+    @overload
+    def __add__(self: TpsaMap[Tpsa], other: TpsaMap[ComplexTpsa]) -> TpsaMap[ComplexTpsa]: ...
+    @overload
+    def __add__(
+        self: TpsaMap[ComplexTpsa], other: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]
+    ) -> TpsaMap[ComplexTpsa]: ...
+
+    def __add__(
+        self, other: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]
+    ) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
         if not isinstance(other, TpsaMap):
             return NotImplemented
         left, right = _coerce_pair(self.coords, other.coords)
@@ -1006,10 +1070,28 @@ class TpsaMap(Generic[SeriesT]):
             coord_names=self.coord_names,
         )
 
-    def __sub__(self, other) -> TpsaMap:
+    @overload
+    def __sub__(self: TpsaMap[Tpsa], other: TpsaMap[Tpsa]) -> TpsaMap[Tpsa]: ...
+    @overload
+    def __sub__(self: TpsaMap[Tpsa], other: TpsaMap[ComplexTpsa]) -> TpsaMap[ComplexTpsa]: ...
+    @overload
+    def __sub__(
+        self: TpsaMap[ComplexTpsa], other: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]
+    ) -> TpsaMap[ComplexTpsa]: ...
+
+    def __sub__(
+        self, other: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]
+    ) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
         if not isinstance(other, TpsaMap):
             return NotImplemented
-        return self + (-other)
+        left, right = _coerce_pair(self.coords, other.coords)
+        if len(left) != len(right):
+            message = 'Maps must have the same number of components'
+            raise ValueError(message)
+        return TpsaMap(
+            [a - b for a, b in zip(left, right, strict=True)],
+            coord_names=self.coord_names,
+        )
 
     def __mul__(self, scalar):
         if not isinstance(scalar, Number):
