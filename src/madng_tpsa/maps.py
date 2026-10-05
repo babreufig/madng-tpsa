@@ -9,7 +9,7 @@ provides a small Python container around such a sequence.
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
-from numbers import Integral, Number
+from numbers import Integral
 from typing import Any, Generic, SupportsComplex, SupportsFloat, TypeAlias, TypeVar, cast, overload
 
 import numpy as np
@@ -140,6 +140,17 @@ def _normalise_selection(select: Sequence[SelectionValue], expected_length: int)
             raise ValueError(message)
         result.append(value)
     return result
+
+
+def _set_series_const_part(component: Series, value: Scalar) -> None:
+    converted = complex(value)
+    if isinstance(component, Tpsa):
+        if converted.imag != 0:
+            err_mess = 'Cannot assign a complex constant to a real TPSA map'
+            raise TypeError(err_mess)
+        component.set_const_part(converted.real)
+    else:
+        component.set_const_part(converted)
 
 
 def _set_series_coefficient(component: Series, monomial, value: Scalar) -> None:
@@ -778,13 +789,7 @@ class TpsaMap(Generic[SeriesT]):
             message = f'Expected {len(self)} values, got {len(values)}'
             raise ValueError(message)
         for component, value in zip(self.coords, values, strict=True):
-            if isinstance(component, Tpsa):
-                if not isinstance(value, SupportsFloat):
-                    message = 'Cannot assign a complex constant to a real TPSA map'
-                    raise TypeError(message)
-                component.set_const_part(value)
-            else:
-                component.set_const_part(value)
+            _set_series_const_part(component, value)
 
     def evaluate(self, coordinates, *, parameters=None) -> np.ndarray:
         """Evaluate the map at numerical coordinates."""
@@ -923,6 +928,17 @@ class TpsaMap(Generic[SeriesT]):
         )
         return cast('TpsaMap[SeriesT]', result)
 
+    @overload
+    def translate(self: TpsaMap[Tpsa], offsets: Sequence[SupportsFloat]) -> TpsaMap[Tpsa]: ...
+    @overload
+    def translate(
+        self: TpsaMap[Tpsa], offsets: Sequence[SupportsComplex]
+    ) -> TpsaMap[ComplexTpsa]: ...
+    @overload
+    def translate(
+        self: TpsaMap[ComplexTpsa], offsets: Sequence[Scalar]
+    ) -> TpsaMap[ComplexTpsa]: ...
+
     def translate(self, offsets: Sequence[Scalar]) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
         """Translate the map arguments."""
         return TpsaMap(
@@ -999,7 +1015,7 @@ class TpsaMap(Generic[SeriesT]):
     ) -> TpsaMap[ComplexTpsa]: ...
 
     def log_poisson(
-        self, initial_guess: TpsaMap | None = None
+        self, initial_guess: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa] | None = None
     ) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
         """Return the logarithmic Hamiltonian vector field."""
         initial_coords = None if initial_guess is None else initial_guess.coords
@@ -1020,7 +1036,9 @@ class TpsaMap(Generic[SeriesT]):
         initial_guess: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa] | None = None,
     ) -> ComplexTpsa: ...
 
-    def log_generator(self, initial_guess: TpsaMap | None = None) -> Series:
+    def log_generator(
+        self, initial_guess: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa] | None = None
+    ) -> Series:
         """Return the scalar logarithmic generator."""
         initial_coords = None if initial_guess is None else initial_guess.coords
         return log_generator(self.coords, initial_coords)
@@ -1093,8 +1111,15 @@ class TpsaMap(Generic[SeriesT]):
             coord_names=self.coord_names,
         )
 
-    def __mul__(self, scalar):
-        if not isinstance(scalar, Number):
+    @overload
+    def __mul__(self: TpsaMap[Tpsa], scalar: SupportsFloat) -> TpsaMap[Tpsa]: ...
+    @overload
+    def __mul__(self: TpsaMap[Tpsa], scalar: SupportsComplex) -> TpsaMap[ComplexTpsa]: ...
+    @overload
+    def __mul__(self: TpsaMap[ComplexTpsa], scalar: Scalar) -> TpsaMap[ComplexTpsa]: ...
+
+    def __mul__(self, scalar: Scalar) -> TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]:
+        if not isinstance(scalar, (SupportsFloat, SupportsComplex)):
             return NotImplemented
         return TpsaMap(
             [scalar * value for value in self.coords],

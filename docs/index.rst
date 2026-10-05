@@ -63,7 +63,15 @@ canonical pairs,
 
    (q_1,p_1,q_2,p_2,\ldots).
 
-Descriptor parameters are not canonical variables.
+Descriptor parameters are treated as external symbolic parameters, not as
+phase-space coordinates. They can appear in TPSA coefficients and can be
+differentiated with respect to, but they are carried unchanged through map
+composition and are not included in canonical Poisson-bracket pairs.
+
+For example, with variables ``(q, p)`` and a parameter ``k``, the Poisson
+bracket differentiates only with respect to ``q`` and ``p``. If a quantity
+should itself be part of the Hamiltonian phase space, it must be introduced as
+a descriptor variable together with its conjugate variable.
 
 .. toctree::
    :maxdepth: 2
