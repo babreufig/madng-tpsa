@@ -164,8 +164,29 @@ def _set_series_coefficient(component: Series, monomial, value: Scalar) -> None:
         component.set(monomial, value)
 
 
+@overload
 def compose(
-    left: Sequence[Series] | TpsaMap, right: Sequence[Series] | TpsaMap
+    left: Sequence[Tpsa] | TpsaMap[Tpsa], right: Sequence[Tpsa] | TpsaMap[Tpsa]
+) -> tuple[Tpsa, ...]: ...
+@overload
+def compose(
+    left: Sequence[Tpsa] | TpsaMap[Tpsa], right: Sequence[ComplexTpsa] | TpsaMap[ComplexTpsa]
+) -> tuple[ComplexTpsa, ...]: ...
+@overload
+def compose(
+    left: Sequence[ComplexTpsa] | TpsaMap[ComplexTpsa],
+    right: (Sequence[Tpsa] | Sequence[ComplexTpsa] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]),
+) -> tuple[ComplexTpsa, ...]: ...
+@overload
+def compose(
+    left: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa],
+    right: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa],
+) -> tuple[Series, ...]: ...
+
+
+def compose(
+    left: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa],
+    right: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa],
 ) -> tuple[Series, ...]:
     """Return ``left ∘ right``, i.e. ``left(right(z))``.
 
@@ -204,7 +225,15 @@ def compose(
     return result
 
 
-def inverse(values: Sequence[Series] | TpsaMap) -> tuple[Series, ...]:
+@overload
+def inverse(values: Sequence[Tpsa] | TpsaMap[Tpsa]) -> tuple[Tpsa, ...]: ...
+@overload
+def inverse(values: Sequence[ComplexTpsa] | TpsaMap[ComplexTpsa]) -> tuple[ComplexTpsa, ...]: ...
+@overload
+def inverse(values: Sequence[Series]) -> tuple[Series, ...]: ...
+
+
+def inverse(values: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]) -> tuple[Series, ...]:
     """Return the inverse of a full variable map centered at the origin.
 
     Descriptor parameters are treated as independent parameters and carried
@@ -238,8 +267,23 @@ def inverse(values: Sequence[Series] | TpsaMap) -> tuple[Series, ...]:
     return tuple(full_output[: descriptor.num_vars])
 
 
+@overload
 def partial_inverse(
-    values: Sequence[Series] | TpsaMap, select: Sequence[SelectionValue]
+    values: Sequence[Tpsa] | TpsaMap[Tpsa], select: Sequence[SelectionValue]
+) -> tuple[Tpsa, ...]: ...
+@overload
+def partial_inverse(
+    values: Sequence[ComplexTpsa] | TpsaMap[ComplexTpsa], select: Sequence[SelectionValue]
+) -> tuple[ComplexTpsa, ...]: ...
+@overload
+def partial_inverse(
+    values: Sequence[Series], select: Sequence[SelectionValue]
+) -> tuple[Series, ...]: ...
+
+
+def partial_inverse(
+    values: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa],
+    select: Sequence[SelectionValue],
 ) -> tuple[Series, ...]:
     """Return a partial inverse for selected variable rows of a full map.
 
@@ -338,7 +382,26 @@ def evaluate(
     return np.asarray([float(output_array[ii]) for ii in range(len(series))])
 
 
-def translate(values: Sequence[Series] | TpsaMap, offsets: Sequence[Scalar]) -> tuple[Series, ...]:
+@overload
+def translate(
+    values: Sequence[Tpsa] | TpsaMap[Tpsa], offsets: Sequence[SupportsFloat]
+) -> tuple[Tpsa, ...]: ...
+@overload
+def translate(
+    values: Sequence[Tpsa] | TpsaMap[Tpsa],
+    offsets: Sequence[SupportsComplex],
+) -> tuple[ComplexTpsa, ...]: ...
+@overload
+def translate(
+    values: Sequence[ComplexTpsa] | TpsaMap[ComplexTpsa], offsets: Sequence[Scalar]
+) -> tuple[ComplexTpsa, ...]: ...
+@overload
+def translate(values: Sequence[Series], offsets: Sequence[Scalar]) -> tuple[Series, ...]: ...
+
+
+def translate(
+    values: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa], offsets: Sequence[Scalar]
+) -> tuple[Series, ...]:
     """Return the map after substituting ``z -> z + offsets``.
 
     This is implemented through native composition so descriptor parameters remain
@@ -365,6 +428,14 @@ def translate(values: Sequence[Series] | TpsaMap, offsets: Sequence[Scalar]) -> 
             for index, value in enumerate(offsets, start=1)
         )
     return compose(series, substitutions)
+
+
+@overload
+def vector_to_field(generator: Tpsa) -> tuple[Tpsa, ...]: ...
+@overload
+def vector_to_field(generator: ComplexTpsa) -> tuple[ComplexTpsa, ...]: ...
+@overload
+def vector_to_field(generator: Series) -> tuple[Series, ...]: ...
 
 
 def vector_to_field(generator: Series) -> tuple[Series, ...]:
@@ -402,7 +473,15 @@ def vector_to_field(generator: Series) -> tuple[Series, ...]:
     return result
 
 
-def field_to_vector(field: Sequence[Series] | TpsaMap) -> Series:
+@overload
+def field_to_vector(field: Sequence[Tpsa] | TpsaMap[Tpsa]) -> Tpsa: ...
+@overload
+def field_to_vector(field: Sequence[ComplexTpsa] | TpsaMap[ComplexTpsa]) -> ComplexTpsa: ...
+@overload
+def field_to_vector(field: Sequence[Series]) -> Series: ...
+
+
+def field_to_vector(field: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]) -> Series:
     """Convert a Hamiltonian vector field to its scalar generator."""
     series = _series_tuple(field)
     descriptor = series[0].descriptor
@@ -434,8 +513,29 @@ def field_to_vector(field: Sequence[Series] | TpsaMap) -> Series:
     return result
 
 
+@overload
 def lie_bracket(
-    left: Sequence[Series] | TpsaMap, right: Sequence[Series] | TpsaMap
+    left: Sequence[Tpsa] | TpsaMap[Tpsa], right: Sequence[Tpsa] | TpsaMap[Tpsa]
+) -> tuple[Tpsa, ...]: ...
+@overload
+def lie_bracket(
+    left: Sequence[Tpsa] | TpsaMap[Tpsa], right: Sequence[ComplexTpsa] | TpsaMap[ComplexTpsa]
+) -> tuple[ComplexTpsa, ...]: ...
+@overload
+def lie_bracket(
+    left: Sequence[ComplexTpsa] | TpsaMap[ComplexTpsa],
+    right: (Sequence[Tpsa] | Sequence[ComplexTpsa] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]),
+) -> tuple[ComplexTpsa, ...]: ...
+@overload
+def lie_bracket(
+    left: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa],
+    right: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa],
+) -> tuple[Series, ...]: ...
+
+
+def lie_bracket(
+    left: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa],
+    right: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa],
 ) -> tuple[Series, ...]:
     """Return the Lie bracket of two vector fields."""
     left_series, right_series = _coerce_pair(left, right)
@@ -459,8 +559,30 @@ def lie_bracket(
     return result
 
 
+@overload
 def exp_poisson(
-    values: Sequence[Series] | TpsaMap, generator: Series | Sequence[Series] | TpsaMap
+    values: Sequence[Tpsa] | TpsaMap[Tpsa], generator: Tpsa | Sequence[Tpsa] | TpsaMap[Tpsa]
+) -> tuple[Tpsa, ...]: ...
+@overload
+def exp_poisson(
+    values: Sequence[Tpsa] | TpsaMap[Tpsa],
+    generator: (ComplexTpsa | Sequence[ComplexTpsa] | TpsaMap[ComplexTpsa]),
+) -> tuple[ComplexTpsa, ...]: ...
+@overload
+def exp_poisson(
+    values: Sequence[ComplexTpsa] | TpsaMap[ComplexTpsa],
+    generator: (Series | Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]),
+) -> tuple[ComplexTpsa, ...]: ...
+@overload
+def exp_poisson(
+    values: Sequence[Series],
+    generator: (Series | Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]),
+) -> tuple[Series, ...]: ...
+
+
+def exp_poisson(
+    values: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa],
+    generator: (Series | Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]),
 ) -> tuple[Series, ...]:
     """Apply MAD-NG's exponential Poisson-bracket map.
 
@@ -511,36 +633,29 @@ def exp_poisson(
     return result
 
 
-def log_poisson(
-    values: Sequence[Series] | TpsaMap, initial_guess: Sequence[Series] | TpsaMap | None = None
+def _log_poisson_impl(
+    values: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa],
+    initial_guess: (Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa] | None) = None,
 ) -> tuple[Series, ...]:
-    """Return MAD-NG's vector-field logarithm of a map.
-
-    The result is the vector field accepted by the native ``exppb`` operation,
-    not yet the scalar Hamiltonian generator.
-    """
     series = _series_tuple(values)
     descriptor = series[0].descriptor
     if len(series) != descriptor.num_vars:
-        message = (
+        err_mess = (
             f'log_poisson requires a full {descriptor.num_vars}-component map, got {len(series)}'
         )
-        raise ValueError(message)
-
+        raise ValueError(err_mess)
     initial_series = None
     if initial_guess is not None:
         series, initial_series = _coerce_pair(series, initial_guess)
         if len(initial_series) != descriptor.num_vars:
-            message = (
+            err_mess = (
                 f'Field `initial_guess` must have {descriptor.num_vars} components, '
                 f'got {len(initial_series)}'
             )
-            raise ValueError(message)
-
+            raise ValueError(err_mess)
     result = _zeros_like(series)
     complex_ = _is_complex(series)
     initial_ptrs = ffi.NULL if initial_series is None else _pointer_array(initial_series)
-
     _protected_call(
         'map_pair',
         lib.mad_ctpsa_logpb if complex_ else lib.mad_tpsa_logpb,
@@ -555,27 +670,97 @@ def log_poisson(
     return result
 
 
+@overload
+def log_poisson(
+    values: Sequence[Tpsa] | TpsaMap[Tpsa],
+    initial_guess: Sequence[Tpsa] | TpsaMap[Tpsa] | None = None,
+) -> tuple[Tpsa, ...]: ...
+@overload
+def log_poisson(
+    values: Sequence[Tpsa] | TpsaMap[Tpsa],
+    initial_guess: Sequence[ComplexTpsa] | TpsaMap[ComplexTpsa],
+) -> tuple[ComplexTpsa, ...]: ...
+@overload
+def log_poisson(
+    values: Sequence[ComplexTpsa] | TpsaMap[ComplexTpsa],
+    initial_guess: (Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa] | None) = None,
+) -> tuple[ComplexTpsa, ...]: ...
+@overload
+def log_poisson(
+    values: Sequence[Series],
+    initial_guess: (Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa] | None) = None,
+) -> tuple[Series, ...]: ...
+
+
+def log_poisson(
+    values: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa],
+    initial_guess: (Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa] | None) = None,
+) -> tuple[Series, ...]:
+    """Return MAD-NG's vector-field logarithm of a map.
+
+    The result is the vector field accepted by the native ``exppb`` operation,
+    not yet the scalar Hamiltonian generator.
+    """
+    return _log_poisson_impl(values, initial_guess)
+
+
+@overload
 def log_generator(
-    values: Sequence[Series] | TpsaMap, initial_guess: Sequence[Series] | TpsaMap | None = None
+    values: Sequence[Tpsa] | TpsaMap[Tpsa],
+    initial_guess: Sequence[Tpsa] | TpsaMap[Tpsa] | None = None,
+) -> Tpsa: ...
+@overload
+def log_generator(
+    values: Sequence[Tpsa] | TpsaMap[Tpsa],
+    initial_guess: Sequence[ComplexTpsa] | TpsaMap[ComplexTpsa],
+) -> ComplexTpsa: ...
+@overload
+def log_generator(
+    values: Sequence[ComplexTpsa] | TpsaMap[ComplexTpsa],
+    initial_guess: (Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa] | None) = None,
+) -> ComplexTpsa: ...
+@overload
+def log_generator(
+    values: Sequence[Series],
+    initial_guess: (Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa] | None) = None,
+) -> Series: ...
+
+
+def log_generator(
+    values: Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa],
+    initial_guess: (Sequence[Series] | TpsaMap[Tpsa] | TpsaMap[ComplexTpsa] | None) = None,
 ) -> Series:
     """Return the scalar generator corresponding to :func:`log_poisson`.
 
     The minus sign mirrors MAD-NG's high-level ``damap:exppb(f)`` convention,
     which converts a scalar ``f`` to ``-vec2fld(f)``.
     """
-    return -field_to_vector(log_poisson(values, initial_guess))
+    return -field_to_vector(_log_poisson_impl(values, initial_guess))
 
 
-def pullback(function: Series, map_: TpsaMap) -> Series:
-    """Return the pullback ``function ∘ map_``."""
+def _pullback_impl(function: Series, map_: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]) -> Series:
     if function.descriptor is not map_.descriptor:
         message = 'Function and map must share the same Descriptor'
         raise ValueError(message)
     if len(map_) != map_.num_vars:
         message = f'Pullback requires a full {map_.num_vars}-component map, got {len(map_)}'
         raise ValueError(message)
-
     return compose((function,), map_.coords)[0]
+
+
+@overload
+def pullback(function: Tpsa, map_: TpsaMap[Tpsa]) -> Tpsa: ...
+@overload
+def pullback(function: Tpsa, map_: TpsaMap[ComplexTpsa]) -> ComplexTpsa: ...
+@overload
+def pullback(function: ComplexTpsa, map_: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]) -> ComplexTpsa: ...
+@overload
+def pullback(function: Series, map_: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]) -> Series: ...
+
+
+def pullback(function: Series, map_: TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]) -> Series:
+    """Return the pullback ``function ∘ map_``."""
+    return _pullback_impl(function, map_)
 
 
 def map_order(values: Sequence[Series] | TpsaMap) -> int:
@@ -1052,7 +1237,11 @@ class TpsaMap(Generic[SeriesT]):
 
     def pullback(self, function: Series) -> Series:
         """Return ``function ∘ self``."""
-        return pullback(function, self)
+        map_ = cast(
+            'TpsaMap[Tpsa] | TpsaMap[ComplexTpsa]',
+            self,
+        )
+        return _pullback_impl(function, map_)
 
     def norm(self) -> float:
         """Return the MAD-NG map norm."""

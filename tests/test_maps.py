@@ -97,7 +97,7 @@ def test_map_rejects_empty_sequence():
 def test_map_rejects_non_series_component(descriptor):
     x, _ = descriptor.vars()
     with pytest.raises(TypeError, match='Map components must be'):
-        TpsaMap([x, 1.0])  # ty:ignore[no-matching-overload]
+        TpsaMap([x, 1.0])  # ty: ignore[no-matching-overload]
 
 
 def test_map_rejects_different_descriptors():
@@ -585,7 +585,7 @@ def test_vector_to_field_complex(descriptor):
 
 def test_vector_to_field_validation():
     with pytest.raises(TypeError, match='generator must be'):
-        vector_to_field(1.0)  # ty:ignore[invalid-argument-type]
+        vector_to_field(1.0)  # ty: ignore[no-matching-overload]
     descriptor = Descriptor(3, 3)
     with pytest.raises(ValueError, match='even number of variables'):
         vector_to_field(descriptor.var(1) ** 2)
@@ -597,8 +597,7 @@ def test_field_to_vector_requires_full_field(descriptor):
         field_to_vector([q])
 
 
-def test_field_to_vector_cannot_recover_generator_constant():
-    descriptor = Descriptor(variables=['q', 'p'], order=4)
+def test_field_to_vector_cannot_recover_generator_constant(descriptor):
     q, p = descriptor.vars()
     generator = 7 + q**3 / 3 + q * p**2
     recovered = field_to_vector(vector_to_field(generator))
@@ -696,13 +695,12 @@ def test_map_log_methods_match_functions(descriptor):
     assert_series_equal(map_.log_generator(), log_generator(map_.coords))
 
 
-def test_exp_poisson_scalar_generator_has_madng_sign_convention():
-    descriptor = Descriptor(variables=['q', 'p'], order=4)
+def test_exp_poisson_scalar_generator_has_madng_sign_convention(descriptor):
     q, p = descriptor.vars()
     generator = q**3 / 3
     map_ = TpsaMap.identity(descriptor).exp_poisson(generator)
-    assert_series_equal(map_.q, q)
-    assert_series_equal(map_.p, p - q**2)
+    assert_series_equal(map_.v_1, q)
+    assert_series_equal(map_.v_2, p - q**2)
 
 
 def test_exp_poisson_log_generator_round_trip(descriptor):
