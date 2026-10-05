@@ -228,3 +228,15 @@ def test_tpsa_keeps_descriptor_alive():
 
     assert descriptor_ref() is t.descriptor
     assert t.descriptor.var_labels == ('x',)
+
+
+def test_is_valid_monomial_rejects_wrong_length():
+    descriptor = madng_tpsa.Descriptor(
+        variables=['x', 'px'],
+        order=3,
+        params=['k'],
+    )
+
+    assert not descriptor.is_valid_monomial((1, 0))
+    assert not descriptor.is_valid_monomial((1, 0, 0, 0))
+    assert descriptor.is_valid_monomial((1, 0, 0))

@@ -1,69 +1,91 @@
 madng-tpsa
 ==========
 
-Python bindings for MAD-NG's Generalised Truncated Power Series Algebra (GTPSA).
-It provides real and complex truncated multivariate power series with a small,
-Pythonic interface backed by the MAD-NG C library.
+``madng-tpsa`` provides Python bindings to the Generalised Truncated Power
+Series Algebra (GTPSA) engine used by MAD-NG.
+
+The package has four main building blocks:
+
+* :class:`~madng_tpsa.descriptor.Descriptor` defines the algebraic space:
+  variables, optional parameters, and truncation orders.
+* :class:`~madng_tpsa.tpsa.Tpsa` represents a real truncated power series.
+* :class:`~madng_tpsa.complex_tpsa.ComplexTpsa` represents the corresponding
+  complex-coefficient series.
+* :class:`~madng_tpsa.maps.TpsaMap` groups several series into a vector-valued
+  Taylor map and provides composition, inversion, Lie-map operations, and other
+  map algebra.
+
+A TPSA stores Taylor coefficients. For a multi-index :math:`\alpha`,
+
+.. math::
+
+   f(\mathbf{x}) = \sum_{\alpha} c_{\alpha}\,\mathbf{x}^{\alpha},
+   \qquad
+   c_{\alpha} = \frac{1}{\alpha!}
+   \left.\partial^{\alpha}f\right|_{\mathbf{x}=0}.
+
+First-order coefficients therefore coincide with derivatives at the expansion
+point; higher-order coefficients include the corresponding factorial.
 
 Quick start
 -----------
 
-Start by defining the algebraic space: its variables, optional parameters, and
-maximum order. Series created from the same
-:class:`~madng_tpsa.descriptor.Descriptor` can then be combined algebraically
-and differentiated.
-
 .. code-block:: python
 
-   from madng_tpsa import Descriptor
+   from madng_tpsa import Descriptor, TpsaMap
 
-   descriptor = Descriptor(variables=['x', 'y'], order=3)
+   descriptor = Descriptor(variables=['x', 'y'], order=4)
    x, y = descriptor.vars()
-   f = x**2 + 2 * y
 
-   f.format()  # '2 * y + x**2'
-   f.derivative('y')  # Tpsa({(0, 0): 2.0})
-   f.monomial_coeffs()  # {(0, 1): 2.0, (2, 0): 1.0}
+   f = 2 + 3 * x - y + 4 * x * y + x**3
+   print(f.const_part)
+   print(f.grad())
+   print(f.monomial_coeffs())
 
-NumPy compatibility
--------------------
+   map_ = TpsaMap({
+       'x': x + y + 0.2 * x**2,
+       'y': y - 0.3 * x,
+   })
 
-TPSA objects implement the NumPy ufunc protocol for supported elementary
-functions, so ufuncs preserve the series rather than converting it to a scalar.
-The same applies to supported SciPy special-function ufuncs. They return
-:class:`~madng_tpsa.tpsa.Tpsa` objects for real inputs.
+   print(map_.const_part)
+   print(map_.jacobian())
 
-.. code-block:: python
+Composition follows mathematical ordering:
 
-   import numpy as np
-   import scipy.special
+.. code-block:: text
 
-   np.sin(f)  # A Tpsa containing the truncated sine series
-   scipy.special.erf(f)  # A Tpsa containing the truncated error function
+   left @ right == left(right(z))
 
-Complex series
----------------
+Hamiltonian and Lie operations assume descriptor variables are ordered in
+canonical pairs,
 
-:class:`~madng_tpsa.complex_tpsa.ComplexTpsa` has the corresponding
-complex-coefficient API. Promote a real series with
-:meth:`~madng_tpsa.complex_tpsa.ComplexTpsa.from_tpsa`, or use a function whose
-mathematical result is complex. In particular, ``scipy.special.wofz`` promotes a
-real TPSA result to :class:`~madng_tpsa.complex_tpsa.ComplexTpsa` to match SciPy's
-scalar behaviour.
+.. math::
 
-.. code-block:: python
+   (q_1,p_1,q_2,p_2,\ldots).
 
-   import scipy.special
-   from madng_tpsa import ComplexTpsa
+Descriptor parameters are treated as external symbolic parameters, not as
+phase-space coordinates. They can appear in TPSA coefficients and can be
+differentiated with respect to, but they are carried unchanged through map
+composition and are not included in canonical Poisson-bracket pairs.
 
-   z = ComplexTpsa.from_tpsa(x, y)  # x + 1j * y
-   np.exp(z)  # A ComplexTpsa
-   scipy.special.wofz(f)  # A ComplexTpsa
+For example, with variables ``(q, p)`` and a parameter ``k``, the Poisson
+bracket differentiates only with respect to ``q`` and ``p``. If a quantity
+should itself be part of the Hamiltonian phase space, it must be introduced as
+a descriptor variable together with its conjugate variable.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Documentation
+   :caption: User guide
    :hidden:
 
-   self
+   tpsa
+   complex_tpsa
+   tpsa_map
+   examples
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference
+   :hidden:
+
    api

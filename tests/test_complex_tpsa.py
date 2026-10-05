@@ -377,3 +377,40 @@ def test_complex_tpsa_arithmetic_dunder_dispatches_are_exhaustive():
         d.complex_zero().__rtruediv__(1)
     with pytest.raises(TypeError):
         complex(cast('Any', t))
+
+
+def test_complex_get_and_set_reject_wrong_monomial_length_with_parameters():
+    descriptor = madng_tpsa.Descriptor(
+        variables=['x', 'px'],
+        order=3,
+        params=['k'],
+    )
+    x = descriptor.var('x', 0j)
+    with pytest.raises(ValueError, match='Monomial must have length 3'):
+        x.get((1, 0))
+    with pytest.raises(ValueError, match='Monomial must have length 3'):
+        x.set((1, 0), 1 + 2j)
+
+
+def test_complex_grad_uses_full_monomials_with_parameters():
+    descriptor = madng_tpsa.Descriptor(
+        variables=['x', 'px'],
+        order=2,
+        params=['k'],
+        param_order=1,
+    )
+    x = descriptor.var('x', 0j)
+    px = descriptor.var('px', 0j)
+    k = descriptor.param('k', 0j)
+    value = (2 + 3j) * x + (4 - 5j) * px + (6 + 7j) * k
+    assert value.grad() == pytest.approx(
+        [
+            2 + 3j,
+            4 - 5j,
+        ]
+    )
+    assert value.param_grad() == pytest.approx(
+        [
+            6 + 7j,
+        ]
+    )
